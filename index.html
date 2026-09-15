@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Daybreak — Daily Quotes</title>
+
+<!-- PWA / iOS home-screen behavior -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#5C7A63">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Daybreak">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+
+<style>
+  :root{
+    --paper: #F7F3EC;
+    --ink: #23302A;
+    --ink-soft: #5B6B62;
+    --sage: #5C7A63;
+    --sage-deep: #3F5847;
+    --gold: #C9A227;
+    --line: rgba(35,48,42,0.12);
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+
+  html,body{
+    height:100%;
+    margin:0;
+    overscroll-behavior:none;
+  }
+
+  body{
+    font-family: -apple-system, "Inter", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg, var(--paper));
+    color: var(--ink);
+    transition: background 900ms ease;
+    display:flex;
+    flex-direction:column;
+    min-height: 100dvh;
+    min-height: 100vh;
+    overflow:hidden;
+  }
+
+  /* subtle horizon gradient, shifts with time-of-day class on body */
+  body.tod-morning{ --bg: linear-gradient(180deg,#FCF3E4 0%, #F7F3EC 55%); }
+  body.tod-day{ --bg: linear-gradient(180deg,#F2F6F1 0%, #F7F3EC 55%); }
+  body.tod-evening{ --bg: linear-gradient(180deg,#F6E9E2 0%, #F5EEE6 55%); }
+  body.tod-night{ --bg: linear-gradient(180deg,#232C30 0%, #2C3A35 55%); }
+  body.tod-night{ --ink:#F3F1EA; --ink-soft:#B9C4BC; --line: rgba(243,241,234,0.14); }
+
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: calc(env(safe-area-inset-top,0px) + 16px) 20px 8px;
+    flex-shrink:0;
+  }
+
+  .brand{
+    font-size:14px;
+    letter-spacing:0.02em;
+    color: var(--ink-soft);
+    font-weight:600;
+  }
+
+  .icon-btn{
+    background:none;
+    border:none;
+    padding:8px;
+    margin:-8px;
+    color: var(--ink-soft);
+    cursor:pointer;
+    line-height:0;
+  }
+  .icon-btn:active{ opacity:0.55; }
+  .icon-btn svg{ width:22px; height:22px; display:block; }
+  .icon-btn.active{ color: var(--gold); }
+  .header-actions{ display:flex; gap:4px; align-items:center; }
+
+  main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding: 24px 32px;
+    text-align:center;
+    position:relative;
+    touch-action: pan-y;
+  }
+
+  .quote-wrap{
+    max-width: 560px;
+    width:100%;
+    transition: opacity 260ms ease, transform 260ms ease;
+  }
+  .quote-wrap.leaving{ opacity:0; transform: translateY(6px); }
+
+  .quote-text{
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-weight:400;
+    font-size: clamp(24px, 6.4vw, 34px);
+    line-height:1.38;
+    letter-spacing: 0.001em;
+    margin:0 0 22px;
+  }
+
+  .quote-author{
+    font-size:14px;
+    color: var(--ink-soft);
+    font-weight:600;
+  }
+  .quote-author::before{ content:"— "; }
+
+  .cat-chip{
+    display:inline-block;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.04em;
+    color: var(--sage-deep);
+    background: rgba(92,122,99,0.12);
+    border-radius:20px;
+    padding:5px 12px;
+    margin-bottom:18px;
+  }
+  body.tod-night .cat-chip{ color:#BFE3CB; background: rgba(191,227,203,0.14); }
+
+  footer{
+    flex-shrink:0;
+    padding: 10px 20px calc(env(safe-area-inset-bottom,0px) + 18px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:14px;
+  }
+
+  .swipe-hint{
+    font-size:12px;
+    color: var(--ink-soft);
+    opacity:0.75;
+  }
+
+  .next-btn{
+    border:1.5px solid var(--sage);
+    color: var(--sage-deep);
+    background:transparent;
+    border-radius:28px;
+    padding:13px 30px;
+    font-size:15px;
+    font-weight:600;
+    font-family:inherit;
+    cursor:pointer;
+  }
+  .next-btn:active{ background: rgba(92,122,99,0.14); }
+  body.tod-night .next-btn{ border-color:#7FA286; color:#CFE6D4; }
+  body.tod-night .next-btn:active{ background: rgba(127,162,134,0.18); }
+
+  /* ---- Install banner ---- */
+  .install-banner{
+    position:fixed;
+    left:16px; right:16px;
+    bottom: calc(env(safe-area-inset-bottom,0px) + 16px);
+    background: var(--sage-deep);
+    color:#F7F3EC;
+    border-radius:16px;
+    padding:14px 16px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    transform: translateY(140%);
+    transition: transform 420ms cubic-bezier(.2,.8,.2,1);
+    z-index:20;
+  }
+  .install-banner.show{ transform: translateY(0); }
+  .install-banner p{ margin:0; font-size:13.5px; line-height:1.4; flex:1; }
+  .install-banner b{ font-weight:700; }
+  .install-banner button{
+    background:none; border:none; color:#F7F3EC; opacity:0.75;
+    font-size:13px; padding:6px; cursor:pointer; flex-shrink:0;
+  }
+  .share-glyph{
+    display:inline-block; width:13px; height:16px; vertical-align:-2px;
+  }
+
+  /* ---- Saved sheet ---- */
+  .sheet-backdrop{
+    position:fixed; inset:0; background:rgba(20,26,22,0.35);
+    opacity:0; pointer-events:none; transition:opacity 260ms ease; z-index:30;
+  }
+  .sheet-backdrop.show{ opacity:1; pointer-events:auto; }
+
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0;
+    background: var(--paper);
+    border-radius:22px 22px 0 0;
+    max-height:72vh;
+    display:flex; flex-direction:column;
+    transform: translateY(100%);
+    transition: transform 320ms cubic-bezier(.2,.8,.2,1);
+    z-index:31;
+    padding-bottom: env(safe-area-inset-bottom,0px);
+  }
+  .sheet.show{ transform: translateY(0); }
+  .sheet-handle{
+    width:36px; height:4px; border-radius:2px; background: var(--line);
+    margin: 10px auto 4px;
+  }
+  .sheet-title{
+    font-size:16px; font-weight:700; padding: 6px 20px 12px;
+    border-bottom:1px solid var(--line);
+  }
+  .sheet-list{ overflow-y:auto; padding: 4px 20px 18px; }
+  .saved-item{
+    padding:14px 0; border-bottom:1px solid var(--line);
+    display:flex; gap:10px; align-items:flex-start;
+  }
+  .saved-item p{ margin:0 0 4px; font-family:Georgia,serif; font-size:15px; line-height:1.4; }
+  .saved-item span{ font-size:12px; color:var(--ink-soft); }
+  .saved-remove{ background:none; border:none; color:var(--ink-soft); font-size:18px; padding:4px; cursor:pointer; flex-shrink:0; }
+  .empty-state{ padding: 30px 4px; text-align:center; color:var(--ink-soft); font-size:14px; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition-duration: 1ms !important; animation-duration: 1ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand">Daybreak</span>
+  <div class="header-actions">
+    <button class="icon-btn" id="saveBtn" aria-label="Save quote">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>
+    </button>
+    <button class="icon-btn" id="shareBtn" aria-label="Share quote">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7.5 7.5 12 3l4.5 4.5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+    </button>
+    <button class="icon-btn" id="listBtn" aria-label="Saved quotes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+  <div class="quote-wrap" id="quoteWrap">
+    <span class="cat-chip" id="cat">focus</span>
+    <p class="quote-text" id="quoteText">Loading…</p>
+    <p class="quote-author" id="quoteAuthor" style="display:none;"></p>
+  </div>
+</main>
+
+<footer>
+  <span class="swipe-hint">Swipe or tap for another</span>
+  <button class="next-btn" id="nextBtn">Next quote</button>
+</footer>
+
+<div class="install-banner" id="installBanner">
+  <p><b>Add Daybreak to your Home Screen</b> — tap <svg class="share-glyph" viewBox="0 0 24 30" fill="none" stroke="white" stroke-width="1.6"><path d="M12 2v16M6 8l6-6 6 6M4 14v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V14"/></svg>, then "Add to Home Screen", so it opens offline like an app.</p>
+  <button id="dismissBanner">Got it</button>
+</div>
+
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Saved quotes</div>
+  <div class="sheet-list" id="savedList"></div>
+</div>
+
+<script src="quotes-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
