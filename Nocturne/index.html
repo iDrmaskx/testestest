@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0B1220" />
+<meta name="description" content="A quiet place to log your sleep and see how you're resting." />
+<title>Nocturne</title>
+<link rel="manifest" href="./manifest.json" />
+<link rel="icon" href="./icon-192.png" />
+<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Nocturne" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg: #0B1220;
+    --bg-glow: radial-gradient(120% 60% at 50% -10%, rgba(147,166,230,0.12), transparent 60%),
+               radial-gradient(90% 50% at 85% 0%, rgba(232,185,117,0.08), transparent 55%);
+    --surface: #131C31;
+    --surface-2: #182242;
+    --border: rgba(232,185,117,0.14);
+    --hairline: rgba(237,239,247,0.08);
+    --text: #EDEFF7;
+    --text-dim: #9AA2BE;
+    --text-faint: #656C89;
+    --accent: #E8B975;
+    --accent-ink: #2A2013;
+    --accent-dim: rgba(232,185,117,0.14);
+    --lavender: #93A6E6;
+    --sage: #7FC9A4;
+    --coral: #E38B8B;
+    --radius-s: 10px;
+    --radius-m: 18px;
+    --radius-l: 28px;
+    --font-display: "Fraunces", Georgia, serif;
+    --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background: var(--bg-glow), var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  #app{
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ---------- Header ---------- */
+  header.top{
+    padding: max(28px, env(safe-area-inset-top)) 24px 18px;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+  }
+  header.top .greeting{
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height:1.15;
+  }
+  header.top .date{
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .moon-mark{
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 24px rgba(232,185,117,0.35);
+    -webkit-mask: radial-gradient(circle at 38% 50%, transparent 0 13px, #000 13.5px);
+            mask: radial-gradient(circle at 38% 50%, transparent 0 13px, #000 13.5px);
+    flex-shrink:0;
+    margin-top: 4px;
+  }
+
+  main{
+    flex:1;
+    padding: 0 20px calc(104px + env(safe-area-inset-bottom));
+  }
+
+  .view{ display:none; animation: rise 320ms ease; }
+  .view.active{ display:block; }
+  @keyframes rise{ from{ opacity:0; transform: translateY(6px);} to{ opacity:1; transform:none; } }
+
+  /* ---------- Buttons & chips ---------- */
+  button{ font-family: inherit; }
+  .btn{
+    border:none; cursor:pointer;
+    font-family: var(--font-body);
+    font-weight:600;
+    font-size:15px;
+    border-radius: var(--radius-s);
+    padding: 13px 18px;
+    transition: transform 120ms ease, opacity 120ms ease;
+  }
+  .btn:active{ transform: scale(0.97); }
+  .btn-primary{ background: var(--accent); color: var(--accent-ink); }
+  .btn-ghost{ background: transparent; color: var(--text-dim); border:1px solid var(--hairline); }
+  .btn-danger{ background: transparent; color: var(--coral); }
+  .btn-block{ width:100%; }
+
+  /* ---------- Section headings ---------- */
+  .section-title{
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 500;
+    margin: 28px 0 12px;
+  }
+  .section-title:first-child{ margin-top: 4px; }
+
+  /* ---------- Log entries ---------- */
+  .empty-state{
+    padding: 40px 20px;
+    text-align:center;
+    color: var(--text-dim);
+    border: 1px dashed var(--hairline);
+    border-radius: var(--radius-m);
+    font-size: 14px;
+    line-height:1.6;
+  }
+  .empty-state strong{ display:block; color: var(--text); font-family: var(--font-display); font-size:17px; font-weight:500; margin-bottom:6px; }
+
+  .entry-list{ display:flex; flex-direction:column; gap:10px; }
+  .entry-card{
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-m);
+    padding: 16px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 12px;
+    cursor:pointer;
+    transition: background 150ms ease, border-color 150ms ease;
+  }
+  .entry-card:active{ background: var(--surface-2); }
+  .entry-card .day{
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .entry-card .range{
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 500;
+  }
+  .entry-card .range .sep{ color: var(--text-faint); margin: 0 6px; font-family: var(--font-body); }
+  .entry-card .duration{
+    text-align:right;
+    font-variant-numeric: tabular-nums;
+  }
+  .entry-card .duration .hrs{
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 500;
+  }
+  .entry-card .dots{
+    display:flex; gap:4px; margin-top:6px; justify-content:flex-end;
+  }
+  .entry-card .dots span{
+    width:6px; height:6px; border-radius:50%;
+    background: var(--hairline);
+  }
+  .entry-card .dots span.on{ background: var(--sage); }
+
+  .fab{
+    position: fixed;
+    right: calc((100vw - min(480px, 100vw)) / 2 + 22px);
+    bottom: calc(90px + env(safe-area-inset-bottom));
+    width: 56px; height:56px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-ink);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 10px 30px rgba(232,185,117,0.28);
+    border:none; cursor:pointer;
+    font-size: 26px;
+    z-index: 20;
+  }
+  .fab:active{ transform: scale(0.94); }
+
+  /* ---------- Insights ---------- */
+  .stat-hero{
+    background: linear-gradient(165deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    padding: 24px 22px;
+    margin-top: 4px;
+  }
+  .stat-hero .label{ font-size: 13px; color: var(--text-dim); }
+  .stat-hero .value{
+    font-family: var(--font-display);
+    font-size: 44px;
+    font-weight: 500;
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-hero .sub{ margin-top: 8px; font-size: 13px; color: var(--text-dim); }
+
+  .chart-card{
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-m);
+    padding: 20px 18px 14px;
+  }
+  .chart-card .chart-head{
+    display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 14px;
+  }
+  .chart-card .chart-head h3{
+    font-family: var(--font-display); font-weight:500; font-size:16px; margin:0;
+  }
+  .chart-card .chart-head .legend{ font-size:11px; color: var(--text-faint); }
+  .chart-card svg{ width:100%; height:auto; display:block; overflow:visible; }
+  .bar-label{ font-size: 9.5px; fill: var(--text-faint); font-family: var(--font-body); }
+  .bar-value{ font-size: 10.5px; fill: var(--text-dim); font-family: var(--font-body); font-variant-numeric: tabular-nums; }
+
+  .quality-row{ display:flex; gap:7px; margin-top:16px; justify-content:space-between; }
+  .quality-row .qd{ flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .quality-row .qd .pip{ width:100%; height:6px; border-radius:4px; background: var(--hairline); }
+  .quality-row .qd .pip.filled{ background: var(--lavender); }
+  .quality-row .qd .dlabel{ font-size: 9.5px; color: var(--text-faint); }
+
+  .bedtime-card{
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-m);
+    padding: 20px 18px;
+  }
+  .bedtime-card h3{ font-family: var(--font-display); font-weight:500; font-size:16px; margin:0 0 4px; }
+  .bedtime-card p.hint{ font-size: 13px; color: var(--text-dim); line-height:1.5; margin: 0 0 16px; }
+  .time-row{ display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .time-row label{ font-size: 13px; color: var(--text-dim); }
+  input[type="time"]{
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    color: var(--text);
+    border-radius: var(--radius-s);
+    padding: 10px 12px;
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    flex:1;
+  }
+  .bedtime-options{ display:flex; flex-direction:column; gap:8px; }
+  .bedtime-opt{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 12px 14px;
+    border-radius: var(--radius-s);
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+  }
+  .bedtime-opt .tag-group{ display:flex; flex-direction:column; gap:3px; }
+  .bedtime-opt .tag{ font-size:12.5px; color: var(--text-dim); }
+  .bedtime-opt .badge{ font-size: 10.5px; color: var(--accent); }
+  .bedtime-opt .time{
+    font-family: var(--font-display); font-size: 18px; font-weight:500;
+    font-variant-numeric: tabular-nums;
+  }
+  .bedtime-opt.rec{ border-color: var(--border); background: var(--accent-dim); }
+  .bedtime-opt.rec .tag{ color: var(--accent); }
+
+  /* ---------- Tab bar ---------- */
+  nav.tabbar{
+    position: fixed;
+    left:0; right:0; bottom:0;
+    max-width: 480px;
+    margin: 0 auto;
+    background: rgba(19,28,49,0.86);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--hairline);
+    display:flex;
+    padding: 10px 24px calc(10px + env(safe-area-inset-bottom));
+    z-index: 15;
+  }
+  nav.tabbar button{
+    flex:1;
+    background:none; border:none; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    color: var(--text-faint);
+    font-size: 11.5px;
+    padding: 6px 0;
+  }
+  nav.tabbar button svg{ width:22px; height:22px; }
+  nav.tabbar button.active{ color: var(--accent); }
+  nav.tabbar button.active svg{ filter: drop-shadow(0 0 8px rgba(232,185,117,0.4)); }
+
+  /* ---------- Bottom sheet ---------- */
+  #sheet-backdrop{
+    position: fixed; inset:0;
+    background: rgba(6,9,17,0.6);
+    opacity:0; pointer-events:none;
+    transition: opacity 220ms ease;
+    z-index: 30;
+  }
+  #sheet-backdrop.show{ opacity:1; pointer-events:auto; }
+
+  #entry-sheet{
+    position: fixed;
+    left:50%; bottom:0;
+    transform: translate(-50%, 100%);
+    width:100%; max-width: 480px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-radius: 26px 26px 0 0;
+    padding: 10px 22px calc(28px + env(safe-area-inset-bottom));
+    max-height: 88dvh;
+    overflow-y: auto;
+    transition: transform 280ms cubic-bezier(.32,.72,0,1);
+    z-index: 31;
+  }
+  #entry-sheet.show{ transform: translate(-50%, 0); }
+  .sheet-handle{ width:36px; height:4px; border-radius:2px; background: var(--hairline); margin: 6px auto 18px; }
+  #entry-sheet h2{ font-family: var(--font-display); font-weight:500; font-size:21px; margin: 0 0 20px; }
+
+  .field{ margin-bottom: 18px; }
+  .field label{ display:block; font-size:13px; color: var(--text-dim); margin-bottom:8px; }
+  input[type="datetime-local"]{
+    width:100%;
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    color: var(--text);
+    border-radius: var(--radius-s);
+    padding: 12px 14px;
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    color-scheme: dark;
+  }
+  input[type="datetime-local"]:focus, input[type="time"]:focus{
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+
+  .chip-row{ display:flex; gap:7px; flex-wrap:wrap; }
+  .chip{
+    flex: 1 1 auto;
+    min-width: 58px;
+    text-align:center;
+    padding: 10px 6px;
+    border-radius: var(--radius-s);
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    color: var(--text-dim);
+    font-size: 12px;
+    cursor:pointer;
+    line-height:1.4;
+  }
+  .chip .n{ display:block; font-family: var(--font-display); font-size:16px; color: var(--text); font-weight:500; }
+  .chip.selected{ background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .chip.selected .n{ color: var(--accent); }
+
+  .sheet-actions{ display:flex; gap:10px; margin-top: 6px; }
+  .error-msg{ color: var(--coral); font-size: 13px; margin: -8px 0 16px; display:none; }
+  .error-msg.show{ display:block; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="top">
+    <div>
+      <div class="greeting" id="greeting">Good evening</div>
+      <div class="date" id="today-date"></div>
+    </div>
+    <div class="moon-mark"></div>
+  </header>
+
+  <main>
+    <section class="view active" id="view-log">
+      <div class="section-title">Your nights</div>
+      <div id="log-empty" class="empty-state" hidden>
+        <strong>No nights logged yet</strong>
+        Tap the plus button to record how you slept.
+      </div>
+      <div class="entry-list" id="entry-list"></div>
+    </section>
+
+    <section class="view" id="view-insights">
+      <div class="stat-hero">
+        <div class="label">This week's average</div>
+        <div class="value" id="week-avg">—</div>
+        <div class="sub" id="week-sub">Log a few nights to see your average.</div>
+      </div>
+
+      <div class="section-title">Last 7 nights</div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <h3>Hours slept</h3>
+          <span class="legend">shaded band = 7–9h</span>
+        </div>
+        <div id="bar-chart"></div>
+        <div class="quality-row" id="quality-row"></div>
+      </div>
+
+      <div class="section-title">Find your bedtime</div>
+      <div class="bedtime-card">
+        <h3>Work back from wake-up</h3>
+        <p class="hint">Sleep runs in ~90 minute cycles, and waking between cycles feels easier than waking mid-cycle. Set when you want to wake, and pick a bedtime below — each includes about 15 minutes to fall asleep.</p>
+        <div class="time-row">
+          <label for="wake-input">Wake at</label>
+          <input type="time" id="wake-input" value="07:00" />
+        </div>
+        <div class="bedtime-options" id="bedtime-options"></div>
+      </div>
+    </section>
+  </main>
+
+  <button class="fab" id="fab-add" aria-label="Add sleep entry">+</button>
+
+  <nav class="tabbar">
+    <button class="active" id="tab-log" data-view="log">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11 11.5Z"/></svg>
+      Log
+    </button>
+    <button id="tab-insights" data-view="insights">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M11 20V4M18 20v-7"/></svg>
+      Insights
+    </button>
+  </nav>
+
+  <div id="sheet-backdrop"></div>
+  <form id="entry-sheet">
+    <div class="sheet-handle"></div>
+    <h2 id="sheet-title">Add a night</h2>
+
+    <div class="field">
+      <label for="sleep-input">Bedtime</label>
+      <input type="datetime-local" id="sleep-input" required />
+    </div>
+    <div class="field">
+      <label for="wake-full-input">Wake time</label>
+      <input type="datetime-local" id="wake-full-input" required />
+    </div>
+    <div class="error-msg" id="form-error">Wake time needs to be after bedtime.</div>
+
+    <div class="field">
+      <label>Sleep quality</label>
+      <div class="chip-row" id="quality-chips"></div>
+    </div>
+    <div class="field">
+      <label>How you felt waking up</label>
+      <div class="chip-row" id="feeling-chips"></div>
+    </div>
+
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-ghost" id="delete-entry" hidden>Delete</button>
+      <button type="button" class="btn btn-ghost" id="cancel-entry">Cancel</button>
+      <button type="submit" class="btn btn-primary btn-block">Save night</button>
+    </div>
+  </form>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- Data layer ---------------- */
+  const STORE_KEY = "nocturne.entries";
+
+  function loadEntries(){
+    try{
+      const raw = localStorage.getItem(STORE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+  function saveEntries(list){
+    localStorage.setItem(STORE_KEY, JSON.stringify(list));
+  }
+  let entries = loadEntries();
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  /* ---------------- Helpers ---------------- */
+  const QUALITY_LABELS = ["Poor","Fair","Okay","Good","Great"];
+  const FEELING_LABELS = ["Exhausted","Tired","Okay","Rested","Energized"];
+
+  function pad(n){ return n.toString().padStart(2,"0"); }
+
+  function toLocalInputValue(date){
+    return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  function fmtTime(date){
+    let h = date.getHours(), m = date.getMinutes();
+    const ap = h >= 12 ? "PM" : "AM";
+    h = h % 12; if(h === 0) h = 12;
+    return `${h}:${pad(m)} ${ap}`;
+  }
+
+  function fmtDay(date){
+    return date.toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric" });
+  }
+
+  function duration(minutes){
+    const h = Math.floor(minutes/60);
+    const m = Math.round(minutes - h*60);
+    return h + "h " + (m<10? "0"+m : m) + "m";
+  }
+
+  function computeMinutes(sleepAt, wakeAt){
+    return (new Date(wakeAt) - new Date(sleepAt)) / 60000;
+  }
+
+  /* ---------------- View switching ---------------- */
+  const views = { log: document.getElementById("view-log"), insights: document.getElementById("view-insights") };
+  const tabs = { log: document.getElementById("tab-log"), insights: document.getElementById("tab-insights") };
+  const fab = document.getElementById("fab-add");
+
+  function showView(name){
+    Object.keys(views).forEach(k=>{
+      views[k].classList.toggle("active", k===name);
+      tabs[k].classList.toggle("active", k===name);
+    });
+    fab.style.display = name === "log" ? "flex" : "none";
+    if(name === "insights") renderInsights();
+  }
+  tabs.log.addEventListener("click", ()=>showView("log"));
+  tabs.insights.addEventListener("click", ()=>showView("insights"));
+
+  /* ---------------- Header greeting ---------------- */
+  (function initHeader(){
+    const hour = new Date().getHours();
+    const greeting = document.getElementById("greeting");
+    greeting.textContent = hour < 5 ? "Still up?" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+    document.getElementById("today-date").textContent = fmtDay(new Date());
+  })();
+
+  /* ---------------- Sheet (add/edit) ---------------- */
+  const sheet = document.getElementById("entry-sheet");
+  const backdrop = document.getElementById("sheet-backdrop");
+  const sleepInput = document.getElementById("sleep-input");
+  const wakeFullInput = document.getElementById("wake-full-input");
+  const qualityChips = document.getElementById("quality-chips");
+  const feelingChips = document.getElementById("feeling-chips");
+  const deleteBtn = document.getElementById("delete-entry");
+  const formError = document.getElementById("form-error");
+  const sheetTitle = document.getElementById("sheet-title");
+
+  let editingId = null;
+  let selectedQuality = 3;
+  let selectedFeeling = 3;
+
+  function buildChips(container, labels, getSelected, setSelected){
+    container.innerHTML = "";
+    labels.forEach((label, i)=>{
+      const val = i+1;
+      const el = document.createElement("div");
+      el.className = "chip";
+      el.innerHTML = `<span class="n">${val}</span>${label}`;
+      el.addEventListener("click", ()=>{
+        setSelected(val);
+        [...container.children].forEach(c=>c.classList.remove("selected"));
+        el.classList.add("selected");
+      });
+      if(val === getSelected()) el.classList.add("selected");
+      container.appendChild(el);
+    });
+  }
+
+  function openSheet(entry){
+    editingId = entry ? entry.id : null;
+    formError.classList.remove("show");
+
+    if(entry){
+      sheetTitle.textContent = "Edit night";
+      sleepInput.value = toLocalInputValue(new Date(entry.sleepAt));
+      wakeFullInput.value = toLocalInputValue(new Date(entry.wakeAt));
+      selectedQuality = entry.quality;
+      selectedFeeling = entry.feeling;
+      deleteBtn.hidden = false;
+    } else {
+      sheetTitle.textContent = "Add a night";
+      const now = new Date();
+      const defaultWake = new Date(now); defaultWake.setSeconds(0,0);
+      const defaultSleep = new Date(now); defaultSleep.setDate(defaultSleep.getDate()-1); defaultSleep.setHours(23,0,0,0);
+      defaultWake.setHours(7,0,0,0);
+      sleepInput.value = toLocalInputValue(defaultSleep);
+      wakeFullInput.value = toLocalInputValue(defaultWake);
+      selectedQuality = 3;
+      selectedFeeling = 3;
+      deleteBtn.hidden = true;
+    }
+
+    buildChips(qualityChips, QUALITY_LABELS, ()=>selectedQuality, v=>selectedQuality=v);
+    buildChips(feelingChips, FEELING_LABELS, ()=>selectedFeeling, v=>selectedFeeling=v);
+
+    backdrop.classList.add("show");
+    sheet.classList.add("show");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeSheet(){
+    backdrop.classList.remove("show");
+    sheet.classList.remove("show");
+    document.body.style.overflow = "";
+  }
+
+  fab.addEventListener("click", ()=>openSheet(null));
+  document.getElementById("cancel-entry").addEventListener("click", closeSheet);
+  backdrop.addEventListener("click", closeSheet);
+
+  sheet.addEventListener("submit", function(e){
+    e.preventDefault();
+    const sleepAt = new Date(sleepInput.value);
+    const wakeAt = new Date(wakeFullInput.value);
+    if(!(wakeAt > sleepAt)){
+      formError.classList.add("show");
+      return;
+    }
+    formError.classList.remove("show");
+
+    if(editingId){
+      const idx = entries.findIndex(en=>en.id===editingId);
+      if(idx > -1){
+        entries[idx] = { ...entries[idx], sleepAt: sleepAt.toISOString(), wakeAt: wakeAt.toISOString(), quality: selectedQuality, feeling: selectedFeeling };
+      }
+    } else {
+      entries.push({ id: uid(), sleepAt: sleepAt.toISOString(), wakeAt: wakeAt.toISOString(), quality: selectedQuality, feeling: selectedFeeling });
+    }
+    saveEntries(entries);
+    closeSheet();
+    renderLog();
+    if(views.insights.classList.contains("active")) renderInsights();
+  });
+
+  deleteBtn.addEventListener("click", ()=>{
+    if(!editingId) return;
+    entries = entries.filter(en=>en.id!==editingId);
+    saveEntries(entries);
+    closeSheet();
+    renderLog();
+    if(views.insights.classList.contains("active")) renderInsights();
+  });
+
+  /* ---------------- Render: Log ---------------- */
+  const entryList = document.getElementById("entry-list");
+  const logEmpty = document.getElementById("log-empty");
+
+  function renderLog(){
+    const sorted = [...entries].sort((a,b)=> new Date(b.sleepAt) - new Date(a.sleepAt));
+    entryList.innerHTML = "";
+    logEmpty.hidden = sorted.length > 0;
+
+    sorted.forEach(entry=>{
+      const sleepAt = new Date(entry.sleepAt);
+      const wakeAt = new Date(entry.wakeAt);
+      const mins = computeMinutes(entry.sleepAt, entry.wakeAt);
+
+      const card = document.createElement("div");
+      card.className = "entry-card";
+      card.innerHTML = `
+        <div>
+          <div class="day">${fmtDay(sleepAt)}</div>
+          <div class="range">${fmtTime(sleepAt)}<span class="sep">→</span>${fmtTime(wakeAt)}</div>
+        </div>
+        <div class="duration">
+          <div class="hrs">${duration(mins)}</div>
+          <div class="dots">${[1,2,3,4,5].map(i=>`<span class="${i<=entry.quality?'on':''}"></span>`).join("")}</div>
+        </div>
+      `;
+      card.addEventListener("click", ()=>openSheet(entry));
+      entryList.appendChild(card);
+    });
+  }
+
+  /* ---------------- Render: Insights ---------------- */
+  function last7Days(){
+    const days = [];
+    const now = new Date();
+    for(let i=6;i>=0;i--){
+      const d = new Date(now);
+      d.setDate(d.getDate()-i);
+      d.setHours(0,0,0,0);
+      days.push(d);
+    }
+    return days;
+  }
+
+  function entryForNight(dayStart){
+    const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate()+1);
+    return entries.find(en=>{
+      const s = new Date(en.sleepAt);
+      return s >= dayStart && s < dayEnd;
+    });
+  }
+
+  function renderInsights(){
+    const days = last7Days();
+    const nightly = days.map(d=>{
+      const entry = entryForNight(d);
+      const mins = entry ? computeMinutes(entry.sleepAt, entry.wakeAt) : null;
+      return { day: d, entry, hours: mins!=null ? mins/60 : null };
+    });
+
+    const withData = nightly.filter(n=>n.hours != null);
+    const weekAvgEl = document.getElementById("week-avg");
+    const weekSubEl = document.getElementById("week-sub");
+    if(withData.length){
+      const avgMin = withData.reduce((s,n)=>s + n.hours*60, 0) / withData.length;
+      weekAvgEl.textContent = duration(avgMin);
+      weekSubEl.textContent = `Across ${withData.length} of the last 7 nights`;
+    } else {
+      weekAvgEl.textContent = "—";
+      weekSubEl.textContent = "Log a few nights to see your average.";
+    }
+
+    renderBarChart(nightly);
+    renderQualityRow(nightly);
+    renderBedtimeOptions();
+  }
+
+  function renderBarChart(nightly){
+    const w = 300, h = 150, padL = 6, padR = 6, padTop = 10, padBottom = 22;
+    const chartW = w - padL - padR;
+    const chartH = h - padTop - padBottom;
+    const maxScale = Math.max(9, ...nightly.map(n=>n.hours||0)) + 1;
+    const bandTopY = padTop + chartH * (1 - 9/maxScale);
+    const bandBottomY = padTop + chartH * (1 - 7/maxScale);
+
+    const barW = chartW / nightly.length * 0.5;
+    const gap = chartW / nightly.length;
+
+    let bars = "";
+    nightly.forEach((n, i)=>{
+      const x = padL + gap*i + (gap-barW)/2;
+      const hrs = n.hours || 0;
+      const barH = n.hours != null ? chartH * (hrs/maxScale) : 2;
+      const y = padTop + chartH - barH;
+      let color = "var(--hairline)";
+      if(n.hours != null){
+        color = (hrs >= 7 && hrs <= 9) ? "var(--sage)" : (hrs < 6 ? "var(--coral)" : "var(--lavender)");
+      }
+      const label = n.day.toLocaleDateString(undefined, { weekday:"short" }).slice(0,3);
+      bars += `<rect x="${x}" y="${y}" width="${barW}" height="${Math.max(barH,3)}" rx="4" fill="${color}" />`;
+      if(n.hours != null){
+        bars += `<text class="bar-value" x="${x+barW/2}" y="${y-6}" text-anchor="middle">${hrs.toFixed(1)}</text>`;
+      }
+      bars += `<text class="bar-label" x="${x+barW/2}" y="${h-4}" text-anchor="middle">${label}</text>`;
+    });
+
+    const svg = `
+      <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+        <rect x="0" y="${bandTopY}" width="${w}" height="${bandBottomY-bandTopY}" fill="rgba(232,185,117,0.08)" />
+        ${bars}
+      </svg>
+    `;
+    document.getElementById("bar-chart").innerHTML = svg;
+  }
+
+  function renderQualityRow(nightly){
+    const row = document.getElementById("quality-row");
+    row.innerHTML = "";
+    nightly.forEach(n=>{
+      const wrap = document.createElement("div");
+      wrap.className = "qd";
+      const pip = document.createElement("div");
+      pip.className = "pip" + (n.entry ? " filled" : "");
+      if(n.entry){
+        const t = n.entry.quality/5;
+        pip.style.background = `linear-gradient(90deg, var(--lavender) ${t*100}%, var(--hairline) ${t*100}%)`;
+      }
+      const label = document.createElement("div");
+      label.className = "dlabel";
+      label.textContent = n.day.toLocaleDateString(undefined,{weekday:"narrow"});
+      wrap.appendChild(pip);
+      wrap.appendChild(label);
+      row.appendChild(wrap);
+    });
+  }
+
+  function renderBedtimeOptions(){
+    const input = document.getElementById("wake-input");
+    const container = document.getElementById("bedtime-options");
+
+    function update(){
+      const [hh, mm] = input.value.split(":").map(Number);
+      const wake = new Date(); wake.setHours(hh, mm, 0, 0);
+      const cycles = [
+        { n: 4, tag: "4 sleep cycles" },
+        { n: 5, tag: "5 sleep cycles", rec:true },
+        { n: 6, tag: "6 sleep cycles" }
+      ];
+      container.innerHTML = cycles.map(c=>{
+        const bedtime = new Date(wake.getTime() - (c.n*90 + 15) * 60000);
+        return `<div class="bedtime-opt${c.rec?' rec':''}">
+          <span class="tag-group"><span class="tag">${c.tag}</span>${c.rec?'<span class="badge">Recommended</span>':''}</span>
+          <span class="time">${fmtTime(bedtime)}</span>
+        </div>`;
+      }).join("");
+    }
+    input.removeEventListener("input", update);
+    input.addEventListener("input", update);
+    update();
+  }
+
+  /* ---------------- Service worker ---------------- */
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", ()=>{
+      navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
+    });
+  }
+
+  /* ---------------- Init ---------------- */
+  renderLog();
+})();
+</script>
+</body>
+</html>
