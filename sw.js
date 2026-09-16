@@ -1,6 +1,6 @@
 // Daybreak service worker — caches the whole app on first load so every
 // screen after that works with zero network connection.
-var CACHE = "daybreak-v1";
+var CACHE = "daybreak-v2";
 var FILES = [
   "./",
   "./index.html",

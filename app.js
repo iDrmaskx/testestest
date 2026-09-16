@@ -5,6 +5,7 @@
   var LS_SEEN = "daybreak_seen_v1";
   var LS_BANNER = "daybreak_banner_dismissed_v1";
   var LS_THEME = "daybreak_theme_v1";
+  var LS_STREAK = "daybreak_streak_v1";
 
   var quoteWrap = document.getElementById("quoteWrap");
   var quoteText = document.getElementById("quoteText");
@@ -24,6 +25,8 @@
   var themeIconSun = document.getElementById("themeIconSun");
   var themeIconMoon = document.getElementById("themeIconMoon");
   var themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  var streakEl = document.getElementById("streak");
+  var streakCountEl = document.getElementById("streakCount");
 
   var current = null;
 
@@ -238,6 +241,35 @@
       navigator.serviceWorker.register("sw.js").catch(function(){});
     });
   }
+
+  // ---------- daily streak ----------
+  function dateKey(d){
+    // local-time YYYY-MM-DD, so the streak follows the device's day, not UTC
+    var y = d.getFullYear(), m = ("0"+(d.getMonth()+1)).slice(-2), day = ("0"+d.getDate()).slice(-2);
+    return y + "-" + m + "-" + day;
+  }
+  function updateStreak(){
+    var today = new Date();
+    var todayKey = dateKey(today);
+    var yesterdayKey = dateKey(new Date(today.getTime() - 86400000));
+    var data = safeGet(LS_STREAK, { count: 0, last: null });
+
+    if (data.last === todayKey){
+      // already visited today, no change
+    } else if (data.last === yesterdayKey){
+      data.count += 1;
+      data.last = todayKey;
+    } else {
+      data.count = 1;
+      data.last = todayKey;
+    }
+    safeSet(LS_STREAK, data);
+
+    streakCountEl.textContent = data.count;
+    streakEl.classList.toggle("active", data.count > 0);
+    streakEl.title = data.count === 1 ? "1 day streak" : data.count + " day streak";
+  }
+  updateStreak();
 
   // ---------- boot ----------
   render(pickNext(), false);
