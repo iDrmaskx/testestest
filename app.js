@@ -4,6 +4,7 @@
   var LS_SAVED = "daybreak_saved_v1";
   var LS_SEEN = "daybreak_seen_v1";
   var LS_BANNER = "daybreak_banner_dismissed_v1";
+  var LS_THEME = "daybreak_theme_v1";
 
   var quoteWrap = document.getElementById("quoteWrap");
   var quoteText = document.getElementById("quoteText");
@@ -19,6 +20,10 @@
   var sheet = document.getElementById("sheet");
   var sheetBackdrop = document.getElementById("sheetBackdrop");
   var savedList = document.getElementById("savedList");
+  var themeBtn = document.getElementById("themeBtn");
+  var themeIconSun = document.getElementById("themeIconSun");
+  var themeIconMoon = document.getElementById("themeIconMoon");
+  var themeColorMeta = document.querySelector('meta[name="theme-color"]');
 
   var current = null;
 
@@ -52,6 +57,21 @@
   }
   applyTimeOfDay();
   setInterval(applyTimeOfDay, 10 * 60 * 1000);
+
+  // ---------- dark mode toggle (persists, overrides time-of-day tint) ----------
+  function applyTheme(isDark){
+    document.body.classList.toggle("theme-dark", isDark);
+    themeIconSun.style.display = isDark ? "none" : "block";
+    themeIconMoon.style.display = isDark ? "block" : "none";
+    if (themeColorMeta) themeColorMeta.setAttribute("content", isDark ? "#232E2A" : "#5C7A63");
+  }
+  var darkOn = safeGet(LS_THEME, false);
+  applyTheme(darkOn);
+  themeBtn.addEventListener("click", function(){
+    darkOn = !darkOn;
+    safeSet(LS_THEME, darkOn);
+    applyTheme(darkOn);
+  });
 
   // ---------- quote rotation (no repeat until the pool is exhausted) ----------
   function pickNext(){

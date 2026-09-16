@@ -46,12 +46,21 @@
     overflow:hidden;
   }
 
-  /* subtle horizon gradient, shifts with time-of-day class on body */
+  /* subtle horizon gradient, shifts with time-of-day class on body (light mode only) */
   body.tod-morning{ --bg: linear-gradient(180deg,#FCF3E4 0%, #F7F3EC 55%); }
   body.tod-day{ --bg: linear-gradient(180deg,#F2F6F1 0%, #F7F3EC 55%); }
   body.tod-evening{ --bg: linear-gradient(180deg,#F6E9E2 0%, #F5EEE6 55%); }
-  body.tod-night{ --bg: linear-gradient(180deg,#232C30 0%, #2C3A35 55%); }
-  body.tod-night{ --ink:#F3F1EA; --ink-soft:#B9C4BC; --line: rgba(243,241,234,0.14); }
+  body.tod-night{ --bg: linear-gradient(180deg,#EDEEF2 0%, #F5F3ED 55%); }
+
+  /* explicit dark mode toggle — wins over time-of-day tint since it's declared last */
+  body.theme-dark{
+    --bg: linear-gradient(180deg,#1C2422 0%, #232E2A 55%);
+    --ink: #F3F1EA;
+    --ink-soft: #AEBDB4;
+    --line: rgba(243,241,234,0.14);
+    --surface: #232E2A;
+  }
+  .sheet{ background: var(--surface, var(--paper)); }
 
   header{
     display:flex;
@@ -128,7 +137,7 @@
     padding:5px 12px;
     margin-bottom:18px;
   }
-  body.tod-night .cat-chip{ color:#BFE3CB; background: rgba(191,227,203,0.14); }
+  body.theme-dark .cat-chip{ color:#BFE3CB; background: rgba(191,227,203,0.14); }
 
   footer{
     flex-shrink:0;
@@ -157,8 +166,8 @@
     cursor:pointer;
   }
   .next-btn:active{ background: rgba(92,122,99,0.14); }
-  body.tod-night .next-btn{ border-color:#7FA286; color:#CFE6D4; }
-  body.tod-night .next-btn:active{ background: rgba(127,162,134,0.18); }
+  body.theme-dark .next-btn{ border-color:#7FA286; color:#CFE6D4; }
+  body.theme-dark .next-btn:active{ background: rgba(127,162,134,0.18); }
 
   /* ---- Install banner ---- */
   .install-banner{
@@ -243,6 +252,10 @@
     </button>
     <button class="icon-btn" id="listBtn" aria-label="Saved quotes">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>
+    </button>
+    <button class="icon-btn" id="themeBtn" aria-label="Toggle dark mode">
+      <svg id="themeIconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.4M12 19.1v2.4M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7"/></svg>
+      <svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>
     </button>
   </div>
 </header>
