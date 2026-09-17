@@ -1,0 +1,1332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0D0907" />
+<meta name="description" content="Pomodoro-style focus timers with weekly, monthly, and all-time tracking by label." />
+<title>Ember</title>
+<link rel="manifest" href="./manifest.json" />
+<link rel="icon" href="./icon-192.png" />
+<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Ember" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg: #0D0907;
+    --bg-glow: radial-gradient(120% 55% at 50% -8%, rgba(238,108,66,0.10), transparent 60%),
+               radial-gradient(90% 45% at 90% 0%, rgba(242,184,75,0.06), transparent 55%);
+    --surface: #1C1512;
+    --surface-2: #241A15;
+    --border: rgba(238,108,66,0.18);
+    --hairline: rgba(245,238,230,0.08);
+    --text: #F5EEE6;
+    --text-dim: #A89A8C;
+    --text-faint: #6E6258;
+    --accent: #EE6C42;
+    --accent-ink: #2A1006;
+    --accent-dim: rgba(238,108,66,0.15);
+    --amber: #F2B84B;
+    --coral: #D97A6C;
+    --radius-s: 10px;
+    --radius-m: 18px;
+    --radius-l: 28px;
+    --font-display: "Fraunces", Georgia, serif;
+    --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background: var(--bg-glow), var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  #app{
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ---------- Header ---------- */
+  header.top{
+    padding: max(28px, env(safe-area-inset-top)) 24px 18px;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+  }
+  header.top .greeting{
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height:1.15;
+  }
+  header.top .date{ margin-top: 6px; font-size: 13px; color: var(--text-dim); }
+  .flame-mark{
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 22px rgba(238,108,66,0.35);
+    flex-shrink:0;
+    margin-top: 4px;
+    position: relative;
+    overflow:hidden;
+  }
+  .flame-mark::after{
+    content:"";
+    position:absolute; left:32%; top:24%; width:36%; height:46%;
+    background: var(--amber);
+    clip-path: polygon(50% 0%, 85% 45%, 70% 100%, 30% 100%, 15% 45%);
+  }
+
+  main{ flex:1; padding: 0 20px calc(104px + env(safe-area-inset-bottom)); }
+  .view{ display:none; animation: rise 320ms ease; }
+  .view.active{ display:block; }
+  @keyframes rise{ from{ opacity:0; transform: translateY(6px);} to{ opacity:1; transform:none; } }
+
+  button{ font-family: inherit; }
+  .btn{
+    border:none; cursor:pointer;
+    font-family: var(--font-body);
+    font-weight:600;
+    font-size:15px;
+    border-radius: var(--radius-s);
+    padding: 13px 18px;
+    transition: transform 120ms ease, opacity 120ms ease;
+  }
+  .btn:active{ transform: scale(0.97); }
+  .btn-primary{ background: var(--accent); color: var(--accent-ink); }
+  .btn-ghost{ background: transparent; color: var(--text-dim); border:1px solid var(--hairline); }
+  .btn-block{ width:100%; }
+  .btn-text{
+    background:none; border:none; color: var(--text-faint);
+    font-size: 13px; text-decoration: underline; text-underline-offset: 3px;
+    cursor:pointer; padding: 8px;
+  }
+
+  .section-title{ font-family: var(--font-display); font-size: 19px; font-weight: 500; margin: 28px 0 12px; }
+  .section-title:first-child{ margin-top: 4px; }
+  .section-row{ display:flex; align-items:center; justify-content:space-between; margin: 28px 0 12px; }
+  .section-row .section-title{ margin:0; }
+  .icon-btn{
+    width:32px; height:32px; border-radius:50%;
+    border:1px solid var(--hairline); background: var(--surface);
+    color: var(--text-dim); display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .icon-btn svg{ width:15px; height:15px; }
+
+  .empty-state{
+    padding: 32px 20px; text-align:center; color: var(--text-dim);
+    border: 1px dashed var(--hairline); border-radius: var(--radius-m); font-size: 14px; line-height:1.6;
+  }
+  .empty-state strong{ display:block; color: var(--text); font-family: var(--font-display); font-size:16px; font-weight:500; margin-bottom:6px; }
+
+  /* ---------- Label chips ---------- */
+  .label-row{ display:flex; flex-wrap:wrap; gap:8px; }
+  .label-chip{
+    display:flex; align-items:center; gap:7px;
+    padding: 9px 14px;
+    border-radius: 20px;
+    background: var(--surface); border: 1px solid var(--hairline);
+    color: var(--text-dim); font-size: 13px; font-weight:600;
+    cursor:pointer;
+  }
+  .label-chip .dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .label-chip.selected{ border-color: var(--dotcolor, var(--accent)); color: var(--text); background: var(--surface-2); }
+  .label-chip.add{ color: var(--text-faint); border-style:dashed; }
+
+  /* ---------- Duration presets ---------- */
+  .duration-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+  .dur-chip{
+    padding: 16px 10px;
+    text-align:center;
+    border-radius: var(--radius-m);
+    background: var(--surface); border: 1px solid var(--hairline);
+    cursor:pointer;
+  }
+  .dur-chip .n{ font-family: var(--font-display); font-size: 22px; font-weight:500; }
+  .dur-chip .l{ font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
+  .dur-chip.selected{ background: var(--accent-dim); border-color: var(--accent); }
+  .dur-chip.selected .n{ color: var(--accent); }
+  .dur-chip.custom-full{ grid-column: span 2; }
+
+  .custom-panel{
+    margin-top: 10px;
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: var(--radius-m); padding: 16px;
+  }
+  .duration-row{ display:flex; gap:10px; }
+  .dur-field{ flex:1; text-align:center; }
+  .dur-field input{ text-align:center; }
+  .dur-field .u{ display:block; font-size: 11px; color: var(--text-faint); margin-top: 6px; }
+  .custom-hint{ text-align:center; font-size: 11.5px; color: var(--text-faint); margin-top: 12px; }
+
+  input[type="number"], input[type="date"], input[type="text"]{
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+    color: var(--text);
+    border-radius: var(--radius-s);
+    padding: 12px 14px;
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    color-scheme: dark;
+    width:100%;
+  }
+  input:focus{ outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  #start-timer-btn{ margin-top: 24px; }
+
+  /* ---------- Running timer ---------- */
+  .timer-ring-wrap{
+    position:relative;
+    width: 260px; height:260px;
+    margin: 20px auto 8px;
+  }
+  .timer-ring-wrap svg{ width:100%; height:100%; transform: rotate(-90deg); }
+  .timer-center{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap: 10px;
+  }
+  .timer-digits{
+    font-family: var(--font-display);
+    font-size: 46px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .timer-label-tag{
+    display:flex; align-items:center; gap:7px;
+    font-size: 13px; color: var(--text-dim);
+    background: var(--surface); border:1px solid var(--hairline);
+    padding: 6px 12px; border-radius: 20px;
+  }
+  .timer-label-tag .dot{ width:8px; height:8px; border-radius:50%; }
+  .timer-controls{ display:flex; gap:10px; margin-top: 12px; }
+  .timer-controls .btn{ flex:1; }
+  #discard-session-btn{ display:block; margin: 14px auto 0; }
+
+  /* ---------- Progress: hero stats ---------- */
+  .stat-hero{
+    background: linear-gradient(165deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    padding: 22px 20px;
+  }
+  .stat-hero .label{ font-size: 12.5px; color: var(--text-dim); }
+  .stat-hero .value{
+    font-family: var(--font-display); font-size: 34px; font-weight: 500;
+    margin-top: 6px; font-variant-numeric: tabular-nums; line-height:1.15;
+  }
+  .stat-hero .sub{ margin-top: 6px; font-size: 12.5px; color: var(--text-dim); }
+
+  /* ---------- Period toolbar (reused pattern) ---------- */
+  .period-toolbar{ display:flex; flex-direction:column; gap:12px; margin: 20px 0 16px; }
+  .segmented{ display:flex; background: var(--surface); border:1px solid var(--hairline); border-radius: 12px; padding:4px; }
+  .seg-btn{ flex:1; background:none; border:none; color: var(--text-dim); font-size: 13.5px; font-weight:600; padding:8px 0; border-radius:9px; cursor:pointer; }
+  .seg-btn.active{ background: var(--accent-dim); color: var(--accent); }
+  .period-nav{ display:flex; align-items:center; justify-content:space-between; }
+  .nav-arrow{
+    width:34px; height:34px; border-radius:50%;
+    border:1px solid var(--hairline); background: var(--surface); color: var(--text-dim);
+    font-size:17px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .nav-arrow:disabled{ opacity:0.3; cursor:default; }
+  .nav-arrow:active:not(:disabled){ background: var(--surface-2); }
+  .period-label{ font-family: var(--font-display); font-size:15px; font-weight:500; color: var(--text); }
+
+  /* ---------- Chart ---------- */
+  .chart-card{
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: var(--radius-m); padding: 20px 18px 14px;
+  }
+  .chart-card .chart-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 14px; }
+  .chart-card .chart-head h3{ font-family: var(--font-display); font-weight:500; font-size:16px; margin:0; }
+  .chart-card .chart-head .legend{ font-size:11px; color: var(--text-faint); }
+  .chart-card svg{ width:100%; height:auto; display:block; overflow:visible; }
+  .bar-label{ font-size: 9.5px; fill: var(--text-faint); font-family: var(--font-body); }
+  .bar-value{ font-size: 10.5px; fill: var(--text-dim); font-family: var(--font-body); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Label breakdown ---------- */
+  .breakdown-card{
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: var(--radius-m); padding: 18px;
+    display:flex; flex-direction:column; gap:14px;
+  }
+  .breakdown-row .top{ display:flex; justify-content:space-between; font-size: 13px; margin-bottom:7px; }
+  .breakdown-row .top .name{ display:flex; align-items:center; gap:7px; color: var(--text); font-weight:600; }
+  .breakdown-row .top .name .dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .breakdown-row .top .amount{ color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .breakdown-row .bar-track{ height: 7px; border-radius: 4px; background: var(--surface-2); overflow:hidden; }
+  .breakdown-row .bar-fill{ height:100%; border-radius:4px; }
+
+  /* ---------- Recent sessions ---------- */
+  .entry-list{ display:flex; flex-direction:column; gap:10px; }
+  .entry-card{
+    background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-m);
+    padding: 14px 16px; display:flex; align-items:center; justify-content:space-between; gap: 12px;
+    cursor:pointer; transition: background 150ms ease;
+  }
+  .entry-card:active{ background: var(--surface-2); }
+  .entry-card .left{ display:flex; align-items:center; gap:10px; }
+  .entry-card .dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .entry-card .info .name{ font-size: 14.5px; font-weight:600; }
+  .entry-card .info .day{ font-size: 12px; color: var(--text-dim); margin-top:2px; }
+  .entry-card .mins{
+    font-family: var(--font-display); font-size: 17px; font-weight:500; font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- Tab bar ---------- */
+  nav.tabbar{
+    position: fixed; left:0; right:0; bottom:0;
+    max-width: 480px; margin: 0 auto;
+    background: rgba(28,21,18,0.86);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--hairline);
+    display:flex; padding: 10px 24px calc(10px + env(safe-area-inset-bottom));
+    z-index: 15;
+  }
+  nav.tabbar button{
+    flex:1; background:none; border:none; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    color: var(--text-faint); font-size: 11.5px; padding: 6px 0;
+  }
+  nav.tabbar button svg{ width:22px; height:22px; }
+  nav.tabbar button.active{ color: var(--accent); }
+  nav.tabbar button.active svg{ filter: drop-shadow(0 0 8px rgba(238,108,66,0.4)); }
+
+  /* ---------- Bottom sheets ---------- */
+  #sheet-backdrop, #label-sheet-backdrop{
+    position: fixed; inset:0;
+    background: rgba(5,3,2,0.6);
+    opacity:0; pointer-events:none;
+    transition: opacity 220ms ease;
+    z-index: 30;
+  }
+  #sheet-backdrop.show, #label-sheet-backdrop.show{ opacity:1; pointer-events:auto; }
+
+  #session-sheet, #label-sheet{
+    position: fixed; left:50%; bottom:0;
+    transform: translate(-50%, 100%);
+    width:100%; max-width: 480px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-radius: 26px 26px 0 0;
+    padding: 10px 22px calc(28px + env(safe-area-inset-bottom));
+    max-height: 88dvh; overflow-y: auto;
+    transition: transform 280ms cubic-bezier(.32,.72,0,1);
+    z-index: 31;
+  }
+  #session-sheet.show, #label-sheet.show{ transform: translate(-50%, 0); }
+  .sheet-handle{ width:36px; height:4px; border-radius:2px; background: var(--hairline); margin: 6px auto 18px; }
+  #session-sheet h2, #label-sheet h2{ font-family: var(--font-display); font-weight:500; font-size:21px; margin: 0 0 18px; }
+
+  .field{ margin-bottom: 18px; }
+  .field label{ display:block; font-size:13px; color: var(--text-dim); margin-bottom:8px; }
+  .sheet-actions{ display:flex; gap:10px; margin-top: 6px; }
+  .error-msg{ color: var(--coral); font-size: 13px; margin: -8px 0 16px; display:none; }
+  .error-msg.show{ display:block; }
+
+  /* ---------- Label management sheet ---------- */
+  .label-list{ display:flex; flex-direction:column; margin-bottom: 18px; }
+  .label-item{ display:flex; align-items:center; gap:10px; padding: 11px 2px; border-bottom: 1px solid var(--hairline); }
+  .label-item:last-child{ border-bottom:none; }
+  .label-item .dot{ width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+  .label-item .name{ flex:1; font-size: 14.5px; }
+  .label-item button{ background:none; border:none; color: var(--text-faint); cursor:pointer; padding:6px; font-size: 12.5px; }
+  .label-item button.edit-btn{ color: var(--text-dim); }
+  .label-item button.del-btn{ color: var(--coral); }
+
+  .swatch-row{ display:flex; flex-wrap:wrap; gap:10px; margin-top:6px; }
+  .swatch{
+    width:30px; height:30px; border-radius:50%;
+    border: 2px solid transparent; cursor:pointer;
+  }
+  .swatch.selected{ border-color: var(--text); }
+
+  /* ---------- Toast ---------- */
+  #toast{
+    position: fixed; left:50%; bottom: calc(96px + env(safe-area-inset-bottom));
+    transform: translate(-50%, 14px);
+    max-width: calc(480px - 40px); width: calc(100% - 40px);
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius-m); padding: 14px 16px;
+    display:flex; align-items:center; gap: 12px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.4);
+    opacity: 0; pointer-events:none;
+    transition: opacity 260ms ease, transform 260ms ease;
+    z-index: 40;
+  }
+  #toast.show{ opacity:1; transform: translate(-50%, 0); }
+  #toast .toast-icon{
+    width: 34px; height:34px; border-radius:50%; background: var(--accent-dim);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  #toast .toast-icon svg{ width:18px; height:18px; stroke: var(--accent); }
+  #toast .toast-text{ font-size: 13.5px; line-height:1.4; }
+  #toast .toast-text strong{ font-family: var(--font-display); font-weight:500; display:block; font-size:14.5px; margin-bottom:1px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="top">
+    <div>
+      <div class="greeting" id="greeting">Ready to focus?</div>
+      <div class="date" id="today-date"></div>
+    </div>
+    <div class="flame-mark"></div>
+  </header>
+
+  <main>
+    <section class="view active" id="view-timer">
+
+      <div id="timer-idle">
+        <div class="section-row">
+          <div class="section-title">Label</div>
+          <button type="button" class="icon-btn" id="manage-labels-btn" aria-label="Manage labels">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="label-row" id="label-row"></div>
+
+        <div class="section-title">Duration</div>
+        <div class="duration-grid" id="duration-presets"></div>
+        <div class="custom-panel" id="custom-panel" hidden>
+          <div class="duration-row">
+            <div class="dur-field">
+              <input type="number" id="custom-h" min="0" max="6" placeholder="0" />
+              <span class="u">hr</span>
+            </div>
+            <div class="dur-field">
+              <input type="number" id="custom-m" min="0" max="59" placeholder="0" />
+              <span class="u">min</span>
+            </div>
+          </div>
+          <div class="custom-hint">Up to 6 hours</div>
+        </div>
+
+        <button class="btn btn-primary btn-block" id="start-timer-btn">Start focusing</button>
+      </div>
+
+      <div id="timer-running" hidden>
+        <div class="timer-ring-wrap">
+          <svg viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="90" fill="none" stroke="var(--hairline)" stroke-width="10" />
+            <circle id="timer-ring-fill" cx="100" cy="100" r="90" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" />
+          </svg>
+          <div class="timer-center">
+            <div class="timer-digits" id="timer-digits">25:00</div>
+            <div class="timer-label-tag" id="timer-label-tag"></div>
+          </div>
+        </div>
+        <div class="timer-controls">
+          <button type="button" class="btn btn-ghost" id="pause-resume-btn">Pause</button>
+          <button type="button" class="btn btn-primary" id="end-session-btn">End session</button>
+        </div>
+        <button type="button" class="btn-text" id="discard-session-btn">Discard without saving</button>
+      </div>
+
+    </section>
+
+    <section class="view" id="view-progress">
+      <div class="stat-hero">
+        <div class="label">All-time total</div>
+        <div class="value" id="alltime-total">0h</div>
+        <div class="sub" id="alltime-sub">0 sessions</div>
+      </div>
+
+      <div class="period-toolbar">
+        <div class="segmented" id="mode-toggle">
+          <button type="button" class="seg-btn active" data-mode="week">Week</button>
+          <button type="button" class="seg-btn" data-mode="month">Month</button>
+        </div>
+        <div class="period-nav">
+          <button type="button" class="nav-arrow" id="period-prev" aria-label="Previous period">‹</button>
+          <span class="period-label" id="period-label">This week</span>
+          <button type="button" class="nav-arrow" id="period-next" aria-label="Next period">›</button>
+        </div>
+      </div>
+
+      <div class="stat-hero">
+        <div class="label" id="period-avg-label">Locked in this week</div>
+        <div class="value" id="period-total">0h</div>
+        <div class="sub" id="period-sub">No sessions yet.</div>
+      </div>
+
+      <div class="section-title" id="chart-section-title">Time by day</div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <h3 id="chart-title">Focused hours</h3>
+          <span class="legend" id="chart-legend"></span>
+        </div>
+        <div id="bar-chart"></div>
+      </div>
+
+      <div class="section-title">By label</div>
+      <div id="breakdown-empty" class="empty-state" hidden>
+        <strong>Nothing logged yet</strong>
+        Finish a session this period to see it broken down by label.
+      </div>
+      <div class="breakdown-card" id="label-breakdown"></div>
+
+      <div class="section-title">Recent sessions</div>
+      <div id="session-empty" class="empty-state" hidden>
+        <strong>No sessions this period</strong>
+        Start a timer to log your first one.
+      </div>
+      <div class="entry-list" id="session-list"></div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="active" id="tab-timer" data-view="timer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      Timer
+    </button>
+    <button id="tab-progress" data-view="progress">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M11 20V4M18 20v-7"/></svg>
+      Progress
+    </button>
+  </nav>
+
+  <div id="sheet-backdrop"></div>
+  <form id="session-sheet">
+    <div class="sheet-handle"></div>
+    <h2>Edit session</h2>
+
+    <div class="field">
+      <label for="session-date">Date</label>
+      <input type="date" id="session-date" required />
+    </div>
+    <div class="field">
+      <label>Label</label>
+      <div class="label-row" id="session-label-row"></div>
+    </div>
+    <div class="field">
+      <label for="session-minutes">Minutes</label>
+      <input type="number" id="session-minutes" min="1" required />
+    </div>
+    <div class="error-msg" id="session-error">Enter a label and at least 1 minute.</div>
+
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-ghost" id="delete-session">Delete</button>
+      <button type="button" class="btn btn-ghost" id="cancel-session">Cancel</button>
+      <button type="submit" class="btn btn-primary btn-block">Save</button>
+    </div>
+  </form>
+
+  <div id="label-sheet-backdrop"></div>
+  <div id="label-sheet">
+    <div class="sheet-handle"></div>
+    <h2>Labels</h2>
+    <div class="label-list" id="label-list"></div>
+
+    <div class="field">
+      <label for="label-name-input" id="label-form-title">New label</label>
+      <input type="text" id="label-name-input" placeholder="e.g. Deep Work" maxlength="24" />
+      <div class="swatch-row" id="swatch-row"></div>
+    </div>
+    <div class="error-msg" id="label-error">Give the label a name.</div>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-ghost" id="cancel-label-edit" hidden>Cancel edit</button>
+      <button type="button" class="btn btn-primary btn-block" id="save-label-btn">Add label</button>
+    </div>
+  </div>
+
+  <div id="toast">
+    <div class="toast-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1.5 4 5 5.5 5 10a5 5 0 1 1-10 0c0-1.5.7-2.5 1.5-3.5C9 10 9.5 8 9.5 8s1 1 1.2 2.3C11.2 8 11 5 12 2Z"/></svg>
+    </div>
+    <div class="toast-text" id="toast-text"></div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- Palette ---------------- */
+  const PALETTE = [
+    { key:"ember", hex:"#EE6C42" },
+    { key:"amber", hex:"#F2B84B" },
+    { key:"sage", hex:"#7FA37F" },
+    { key:"lavender", hex:"#8DA0E6" },
+    { key:"rose", hex:"#D98BA0" },
+    { key:"teal", hex:"#5FB8AE" },
+    { key:"clay", hex:"#C97B5B" },
+    { key:"sky", hex:"#7FB8D9" }
+  ];
+  function colorHex(key){
+    const found = PALETTE.find(p=>p.key===key);
+    return found ? found.hex : "#8C8074";
+  }
+
+  const PRESETS = [
+    { minutes: 15, name: "Sprint" },
+    { minutes: 25, name: "Classic" },
+    { minutes: 50, name: "Long" },
+    { minutes: 90, name: "Deep" }
+  ];
+
+  /* ---------------- Data layer ---------------- */
+  const LABELS_KEY = "ember.labels";
+  const SESSIONS_KEY = "ember.sessions";
+  const TIMER_KEY = "ember.activeTimer";
+  const SELECTED_LABEL_KEY = "ember.selectedLabel";
+
+  function loadLabels(){
+    try{
+      const raw = localStorage.getItem(LABELS_KEY);
+      if(raw){ const parsed = JSON.parse(raw); if(parsed.length) return parsed; }
+    }catch(e){}
+    const defaults = [
+      { id: "deep", name: "Deep Work", color: "ember" },
+      { id: "study", name: "Study", color: "amber" },
+      { id: "admin", name: "Admin", color: "sage" }
+    ];
+    localStorage.setItem(LABELS_KEY, JSON.stringify(defaults));
+    return defaults;
+  }
+  function saveLabels(list){ localStorage.setItem(LABELS_KEY, JSON.stringify(list)); }
+  let labels = loadLabels();
+
+  function getLabel(id){
+    return labels.find(l=>l.id===id) || { id: id||"none", name: "Unlabeled", color: "clay" };
+  }
+
+  function loadSessions(){
+    try{
+      const raw = localStorage.getItem(SESSIONS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return []; }
+  }
+  function saveSessions(list){ localStorage.setItem(SESSIONS_KEY, JSON.stringify(list)); }
+  let sessions = loadSessions();
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  function loadActiveTimer(){
+    try{ return JSON.parse(localStorage.getItem(TIMER_KEY)); }catch(e){ return null; }
+  }
+  function saveActiveTimer(t){ localStorage.setItem(TIMER_KEY, JSON.stringify(t)); }
+  function clearActiveTimer(){ localStorage.removeItem(TIMER_KEY); }
+
+  /* ---------------- Helpers ---------------- */
+  function pad(n){ return n.toString().padStart(2,"0"); }
+  function dateKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+  function fmtDay(date){ return date.toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric" }); }
+
+  function fmtClock(totalSeconds){
+    const s = Math.max(0, Math.round(totalSeconds));
+    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    if(h > 0) return `${h}:${pad(m)}:${pad(sec)}`;
+    return `${m}:${pad(sec)}`;
+  }
+
+  function fmtHoursShort(totalMinutes){
+    const h = Math.floor(totalMinutes/60);
+    const m = Math.round(totalMinutes%60);
+    if(h > 0) return m>0 ? `${h}h ${m}m` : `${h}h`;
+    return `${m}m`;
+  }
+
+  /* ---------------- View switching ---------------- */
+  const views = { timer: document.getElementById("view-timer"), progress: document.getElementById("view-progress") };
+  const tabs = { timer: document.getElementById("tab-timer"), progress: document.getElementById("tab-progress") };
+
+  function showView(name){
+    Object.keys(views).forEach(k=>{
+      views[k].classList.toggle("active", k===name);
+      tabs[k].classList.toggle("active", k===name);
+    });
+    if(name === "progress") renderProgress();
+  }
+  tabs.timer.addEventListener("click", ()=>showView("timer"));
+  tabs.progress.addEventListener("click", ()=>showView("progress"));
+
+  /* ---------------- Header ---------------- */
+  (function initHeader(){
+    const hour = new Date().getHours();
+    const greeting = document.getElementById("greeting");
+    greeting.textContent = hour < 12 ? "Ready to focus?" : hour < 18 ? "Keep the streak going" : "One more session?";
+    document.getElementById("today-date").textContent = fmtDay(new Date());
+  })();
+
+  /* ==================================================================
+     TIMER
+  ================================================================== */
+  const idleEl = document.getElementById("timer-idle");
+  const runningEl = document.getElementById("timer-running");
+  const labelRow = document.getElementById("label-row");
+  const durationPresets = document.getElementById("duration-presets");
+  const customPanel = document.getElementById("custom-panel");
+  const customH = document.getElementById("custom-h");
+  const customM = document.getElementById("custom-m");
+  const startBtn = document.getElementById("start-timer-btn");
+  const ringFill = document.getElementById("timer-ring-fill");
+  const timerDigits = document.getElementById("timer-digits");
+  const timerLabelTag = document.getElementById("timer-label-tag");
+  const pauseResumeBtn = document.getElementById("pause-resume-btn");
+  const endSessionBtn = document.getElementById("end-session-btn");
+  const discardBtn = document.getElementById("discard-session-btn");
+
+  const RING_R = 90;
+  const RING_CIRC = 2 * Math.PI * RING_R;
+  ringFill.style.strokeDasharray = String(RING_CIRC);
+
+  let selectedLabelId = localStorage.getItem(SELECTED_LABEL_KEY) || labels[0].id;
+  if(!labels.find(l=>l.id===selectedLabelId)) selectedLabelId = labels[0].id;
+  let selectedDurationMinutes = 25;
+  let customMode = false;
+
+  let activeTimer = loadActiveTimer();
+  let tickHandle = null;
+
+  function renderLabelRow(){
+    labelRow.innerHTML = "";
+    labels.forEach(label=>{
+      const chip = document.createElement("div");
+      chip.className = "label-chip" + (label.id===selectedLabelId ? " selected" : "");
+      chip.style.setProperty("--dotcolor", colorHex(label.color));
+      chip.innerHTML = `<span class="dot" style="background:${colorHex(label.color)}"></span>${label.name}`;
+      chip.addEventListener("click", ()=>{
+        selectedLabelId = label.id;
+        localStorage.setItem(SELECTED_LABEL_KEY, selectedLabelId);
+        renderLabelRow();
+      });
+      labelRow.appendChild(chip);
+    });
+  }
+
+  function renderDurationPresets(){
+    durationPresets.innerHTML = "";
+    PRESETS.forEach(p=>{
+      const chip = document.createElement("div");
+      chip.className = "dur-chip" + (!customMode && selectedDurationMinutes===p.minutes ? " selected" : "");
+      chip.innerHTML = `<div class="n">${p.minutes}</div><div class="l">${p.name}</div>`;
+      chip.addEventListener("click", ()=>{
+        customMode = false;
+        selectedDurationMinutes = p.minutes;
+        customPanel.hidden = true;
+        renderDurationPresets();
+      });
+      durationPresets.appendChild(chip);
+    });
+    const customChip = document.createElement("div");
+    customChip.className = "dur-chip custom-full" + (customMode ? " selected" : "");
+    customChip.innerHTML = `<div class="n">···</div><div class="l">Custom</div>`;
+    customChip.addEventListener("click", ()=>{
+      customMode = true;
+      customPanel.hidden = false;
+      renderDurationPresets();
+      updateCustomDuration();
+    });
+    durationPresets.appendChild(customChip);
+  }
+
+  function updateCustomDuration(){
+    const h = Number(customH.value)||0, m = Number(customM.value)||0;
+    selectedDurationMinutes = Math.min(360, Math.max(1, h*60 + m));
+  }
+  [customH, customM].forEach(el=>el.addEventListener("input", updateCustomDuration));
+
+  document.getElementById("manage-labels-btn").addEventListener("click", openLabelSheet);
+
+  startBtn.addEventListener("click", ()=>{
+    if(customMode) updateCustomDuration();
+    const totalSeconds = Math.round(Math.min(360, selectedDurationMinutes) * 60);
+    startTimer(totalSeconds, selectedLabelId);
+  });
+
+  function startTimer(totalSeconds, labelId){
+    activeTimer = {
+      labelId, totalSeconds,
+      remainingAtLastChange: totalSeconds,
+      lastChangeAt: Date.now(),
+      paused: false,
+      startDate: dateKey(new Date())
+    };
+    saveActiveTimer(activeTimer);
+    enterRunningView();
+    startTicking();
+  }
+
+  function computeRemaining(t){
+    if(!t) return 0;
+    if(t.paused) return t.remainingAtLastChange;
+    const elapsedSince = (Date.now() - t.lastChangeAt)/1000;
+    return Math.max(0, t.remainingAtLastChange - elapsedSince);
+  }
+
+  function enterRunningView(){
+    idleEl.hidden = true;
+    runningEl.hidden = false;
+    const label = getLabel(activeTimer.labelId);
+    timerLabelTag.innerHTML = `<span class="dot" style="background:${colorHex(label.color)}"></span>${label.name}`;
+    pauseResumeBtn.textContent = activeTimer.paused ? "Resume" : "Pause";
+    renderTick();
+  }
+
+  function enterIdleView(){
+    runningEl.hidden = true;
+    idleEl.hidden = false;
+    renderLabelRow();
+  }
+
+  function renderTick(){
+    if(!activeTimer) return;
+    const remaining = computeRemaining(activeTimer);
+    timerDigits.textContent = fmtClock(remaining);
+    const fraction = activeTimer.totalSeconds > 0 ? remaining / activeTimer.totalSeconds : 0;
+    ringFill.style.strokeDashoffset = String(RING_CIRC * (1 - fraction));
+    if(remaining <= 0){
+      completeNaturally();
+    }
+  }
+
+  function startTicking(){
+    stopTicking();
+    tickHandle = setInterval(renderTick, 500);
+  }
+  function stopTicking(){
+    if(tickHandle){ clearInterval(tickHandle); tickHandle = null; }
+  }
+
+  pauseResumeBtn.addEventListener("click", ()=>{
+    if(!activeTimer) return;
+    if(activeTimer.paused){
+      activeTimer.lastChangeAt = Date.now();
+      activeTimer.paused = false;
+      pauseResumeBtn.textContent = "Pause";
+    } else {
+      activeTimer.remainingAtLastChange = computeRemaining(activeTimer);
+      activeTimer.paused = true;
+      pauseResumeBtn.textContent = "Resume";
+    }
+    saveActiveTimer(activeTimer);
+  });
+
+  endSessionBtn.addEventListener("click", ()=>{
+    finalizeSession(false);
+  });
+  discardBtn.addEventListener("click", ()=>{
+    finalizeSession(true);
+  });
+
+  function finalizeSession(discard){
+    if(!activeTimer) return;
+    const remaining = computeRemaining(activeTimer);
+    const focusedSeconds = Math.max(0, activeTimer.totalSeconds - remaining);
+    const label = getLabel(activeTimer.labelId);
+    const wasDiscard = discard || focusedSeconds < 30;
+
+    if(!wasDiscard){
+      logSession(activeTimer.labelId, focusedSeconds, activeTimer.startDate);
+      queueToast(`Session logged`, `${fmtHoursShort(focusedSeconds/60)} under ${label.name}`);
+    }
+    clearActiveTimer();
+    activeTimer = null;
+    stopTicking();
+    enterIdleView();
+  }
+
+  function completeNaturally(){
+    if(!activeTimer) return;
+    const label = getLabel(activeTimer.labelId);
+    logSession(activeTimer.labelId, activeTimer.totalSeconds, activeTimer.startDate);
+    queueToast(`Session complete`, `${fmtHoursShort(activeTimer.totalSeconds/60)} under ${label.name}`);
+    clearActiveTimer();
+    activeTimer = null;
+    stopTicking();
+    enterIdleView();
+    if(navigator.vibrate) navigator.vibrate([120,60,120]);
+  }
+
+  function logSession(labelId, focusedSeconds, date){
+    sessions.push({ id: uid(), date, labelId, focusedSeconds: Math.round(focusedSeconds) });
+    saveSessions(sessions);
+  }
+
+  /* ---------------- Init timer view (resume across reloads) ---------------- */
+  (function initTimer(){
+    renderLabelRow();
+    renderDurationPresets();
+
+    if(activeTimer){
+      const remaining = computeRemaining(activeTimer);
+      if(remaining <= 0){
+        // finished while the app was closed
+        const label = getLabel(activeTimer.labelId);
+        logSession(activeTimer.labelId, activeTimer.totalSeconds, activeTimer.startDate);
+        clearActiveTimer();
+        activeTimer = null;
+        queueToast(`Session logged`, `Completed while you were away — ${label.name}`);
+      } else {
+        enterRunningView();
+        startTicking();
+      }
+    }
+  })();
+
+  /* ==================================================================
+     LABEL MANAGEMENT
+  ================================================================== */
+  const labelSheet = document.getElementById("label-sheet");
+  const labelSheetBackdrop = document.getElementById("label-sheet-backdrop");
+  const labelList = document.getElementById("label-list");
+  const labelNameInput = document.getElementById("label-name-input");
+  const swatchRow = document.getElementById("swatch-row");
+  const saveLabelBtn = document.getElementById("save-label-btn");
+  const cancelLabelEditBtn = document.getElementById("cancel-label-edit");
+  const labelFormTitle = document.getElementById("label-form-title");
+  const labelError = document.getElementById("label-error");
+
+  let editingLabelId = null;
+  let formColor = PALETTE[0].key;
+
+  function openLabelSheet(){
+    editingLabelId = null;
+    resetLabelForm();
+    renderLabelList();
+    labelSheetBackdrop.classList.add("show");
+    labelSheet.classList.add("show");
+    document.body.style.overflow = "hidden";
+  }
+  function closeLabelSheet(){
+    labelSheetBackdrop.classList.remove("show");
+    labelSheet.classList.remove("show");
+    document.body.style.overflow = "";
+    renderLabelRow();
+  }
+  labelSheetBackdrop.addEventListener("click", closeLabelSheet);
+
+  function resetLabelForm(){
+    labelNameInput.value = "";
+    formColor = PALETTE[Math.floor(Math.random()*PALETTE.length)].key;
+    labelFormTitle.textContent = "New label";
+    saveLabelBtn.textContent = "Add label";
+    cancelLabelEditBtn.hidden = true;
+    labelError.classList.remove("show");
+    renderSwatches();
+  }
+
+  function renderSwatches(){
+    swatchRow.innerHTML = "";
+    PALETTE.forEach(p=>{
+      const sw = document.createElement("div");
+      sw.className = "swatch" + (p.key===formColor ? " selected" : "");
+      sw.style.background = p.hex;
+      sw.addEventListener("click", ()=>{ formColor = p.key; renderSwatches(); });
+      swatchRow.appendChild(sw);
+    });
+  }
+
+  function renderLabelList(){
+    labelList.innerHTML = "";
+    labels.forEach(label=>{
+      const row = document.createElement("div");
+      row.className = "label-item";
+      row.innerHTML = `
+        <span class="dot" style="background:${colorHex(label.color)}"></span>
+        <span class="name">${label.name}</span>
+        <button type="button" class="edit-btn">Edit</button>
+        <button type="button" class="del-btn">Delete</button>
+      `;
+      row.querySelector(".edit-btn").addEventListener("click", ()=>startEditLabel(label));
+      row.querySelector(".del-btn").addEventListener("click", ()=>deleteLabel(label.id));
+      labelList.appendChild(row);
+    });
+  }
+
+  function startEditLabel(label){
+    editingLabelId = label.id;
+    labelNameInput.value = label.name;
+    formColor = label.color;
+    labelFormTitle.textContent = "Edit label";
+    saveLabelBtn.textContent = "Save changes";
+    cancelLabelEditBtn.hidden = false;
+    labelError.classList.remove("show");
+    renderSwatches();
+    labelNameInput.focus();
+  }
+  cancelLabelEditBtn.addEventListener("click", ()=>{
+    editingLabelId = null;
+    resetLabelForm();
+  });
+
+  function deleteLabel(id){
+    if(labels.length <= 1) return;
+    labels = labels.filter(l=>l.id!==id);
+    saveLabels(labels);
+    if(selectedLabelId === id){
+      selectedLabelId = labels[0].id;
+      localStorage.setItem(SELECTED_LABEL_KEY, selectedLabelId);
+    }
+    if(editingLabelId === id){ editingLabelId = null; resetLabelForm(); }
+    renderLabelList();
+  }
+
+  saveLabelBtn.addEventListener("click", ()=>{
+    const name = labelNameInput.value.trim();
+    if(!name){ labelError.classList.add("show"); return; }
+    labelError.classList.remove("show");
+
+    if(editingLabelId){
+      const idx = labels.findIndex(l=>l.id===editingLabelId);
+      if(idx > -1){ labels[idx] = { ...labels[idx], name, color: formColor }; }
+    } else {
+      labels.push({ id: uid(), name, color: formColor });
+    }
+    saveLabels(labels);
+    editingLabelId = null;
+    resetLabelForm();
+    renderLabelList();
+  });
+
+  /* ==================================================================
+     SESSION EDIT SHEET
+  ================================================================== */
+  const sessionSheet = document.getElementById("session-sheet");
+  const sessionBackdrop = document.getElementById("sheet-backdrop");
+  const sessionDate = document.getElementById("session-date");
+  const sessionLabelRow = document.getElementById("session-label-row");
+  const sessionMinutes = document.getElementById("session-minutes");
+  const sessionError = document.getElementById("session-error");
+  const deleteSessionBtn = document.getElementById("delete-session");
+  const cancelSessionBtn = document.getElementById("cancel-session");
+
+  let editingSessionId = null;
+  let sessionFormLabelId = null;
+
+  function openSessionSheet(session){
+    editingSessionId = session.id;
+    sessionDate.value = session.date;
+    sessionMinutes.value = Math.round(session.focusedSeconds/60);
+    sessionFormLabelId = session.labelId;
+    renderSessionLabelRow();
+    sessionError.classList.remove("show");
+    sessionBackdrop.classList.add("show");
+    sessionSheet.classList.add("show");
+    document.body.style.overflow = "hidden";
+  }
+  function closeSessionSheet(){
+    sessionBackdrop.classList.remove("show");
+    sessionSheet.classList.remove("show");
+    document.body.style.overflow = "";
+  }
+  sessionBackdrop.addEventListener("click", closeSessionSheet);
+  cancelSessionBtn.addEventListener("click", closeSessionSheet);
+
+  function renderSessionLabelRow(){
+    sessionLabelRow.innerHTML = "";
+    labels.forEach(label=>{
+      const chip = document.createElement("div");
+      chip.className = "label-chip" + (label.id===sessionFormLabelId ? " selected" : "");
+      chip.innerHTML = `<span class="dot" style="background:${colorHex(label.color)}"></span>${label.name}`;
+      chip.addEventListener("click", ()=>{
+        sessionFormLabelId = label.id;
+        renderSessionLabelRow();
+      });
+      sessionLabelRow.appendChild(chip);
+    });
+  }
+
+  sessionSheet.addEventListener("submit", e=>{
+    e.preventDefault();
+    const mins = Number(sessionMinutes.value);
+    if(!sessionFormLabelId || !(mins > 0)){
+      sessionError.classList.add("show");
+      return;
+    }
+    sessionError.classList.remove("show");
+    const idx = sessions.findIndex(s=>s.id===editingSessionId);
+    if(idx > -1){
+      sessions[idx] = { ...sessions[idx], date: sessionDate.value, labelId: sessionFormLabelId, focusedSeconds: Math.round(mins*60) };
+      saveSessions(sessions);
+    }
+    closeSessionSheet();
+    renderProgress();
+  });
+
+  deleteSessionBtn.addEventListener("click", ()=>{
+    sessions = sessions.filter(s=>s.id!==editingSessionId);
+    saveSessions(sessions);
+    closeSessionSheet();
+    renderProgress();
+  });
+
+  /* ==================================================================
+     PROGRESS TAB
+  ================================================================== */
+  let viewMode = "week";
+  let weekOffset = 0;
+  let monthOffset = 0;
+
+  const modeButtons = document.querySelectorAll(".seg-btn");
+  const periodPrevBtn = document.getElementById("period-prev");
+  const periodNextBtn = document.getElementById("period-next");
+
+  modeButtons.forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      viewMode = btn.dataset.mode;
+      modeButtons.forEach(b=>b.classList.toggle("active", b===btn));
+      renderProgress();
+    });
+  });
+  periodPrevBtn.addEventListener("click", ()=>{
+    if(viewMode === "week") weekOffset -= 1; else monthOffset -= 1;
+    renderProgress();
+  });
+  periodNextBtn.addEventListener("click", ()=>{
+    if(viewMode === "week"){ if(weekOffset < 0) weekOffset += 1; }
+    else { if(monthOffset < 0) monthOffset += 1; }
+    renderProgress();
+  });
+
+  function getWeekDays(offset){
+    const now = new Date(); now.setHours(0,0,0,0);
+    const start = new Date(now);
+    start.setDate(start.getDate() - start.getDay() + offset*7);
+    const days = [];
+    for(let i=0;i<7;i++){
+      const d = new Date(start); d.setDate(start.getDate()+i);
+      days.push(d);
+    }
+    return days;
+  }
+
+  function getMonthWeeks(offset){
+    const now = new Date();
+    const base = new Date(now.getFullYear(), now.getMonth()+offset, 1);
+    const year = base.getFullYear(), month = base.getMonth();
+    const lastDate = new Date(year, month+1, 0);
+    const cursor = new Date(year, month, 1);
+    cursor.setDate(cursor.getDate() - cursor.getDay());
+    const weeks = [];
+    while(cursor <= lastDate){
+      const chunk = [];
+      for(let i=0;i<7;i++){
+        const d = new Date(cursor); d.setDate(cursor.getDate()+i);
+        if(d.getMonth()===month && d.getFullYear()===year) chunk.push(d);
+      }
+      if(chunk.length) weeks.push(chunk);
+      cursor.setDate(cursor.getDate()+7);
+    }
+    return { year, month, weeks };
+  }
+
+  function formatWeekLabel(days){
+    const start = days[0], end = days[6];
+    const curYear = new Date().getFullYear();
+    const yearSuffix = start.getFullYear()!==curYear ? `, ${start.getFullYear()}` : "";
+    if(start.getMonth()===end.getMonth()){
+      return `${start.toLocaleDateString(undefined,{month:"short"})} ${start.getDate()}–${end.getDate()}${yearSuffix}`;
+    }
+    return `${start.toLocaleDateString(undefined,{month:"short",day:"numeric"})} – ${end.toLocaleDateString(undefined,{month:"short",day:"numeric"})}${yearSuffix}`;
+  }
+  function formatMonthLabel(year, month){
+    const label = new Date(year, month, 1).toLocaleDateString(undefined,{month:"long"});
+    const curYear = new Date().getFullYear();
+    return year===curYear ? label : `${label} ${year}`;
+  }
+
+  function minutesOnDate(key){
+    return sessions.filter(s=>s.date===key).reduce((sum,s)=>sum+s.focusedSeconds,0) / 60;
+  }
+
+  function round1(n){ return Math.round(n*10)/10; }
+
+  function renderProgress(){
+    // all-time total
+    const totalSec = sessions.reduce((s,se)=>s+se.focusedSeconds, 0);
+    document.getElementById("alltime-total").textContent = fmtHoursShort(totalSec/60);
+    document.getElementById("alltime-sub").textContent = `${sessions.length} session${sessions.length===1?"":"s"}`;
+
+    const periodLabelEl = document.getElementById("period-label");
+    const periodTotalEl = document.getElementById("period-total");
+    const periodAvgLabelEl = document.getElementById("period-avg-label");
+    const periodSubEl = document.getElementById("period-sub");
+    const chartTitle = document.getElementById("chart-title");
+    const chartSectionTitle = document.getElementById("chart-section-title");
+    const chartLegend = document.getElementById("chart-legend");
+
+    let buckets, rangeLabel, periodDateKeys;
+
+    if(viewMode === "week"){
+      const days = getWeekDays(weekOffset);
+      periodDateKeys = days.map(dateKey);
+      buckets = days.map(d=>{
+        const key = dateKey(d);
+        return { label: d.toLocaleDateString(undefined,{weekday:"short"}).slice(0,3), minutes: minutesOnDate(key) };
+      });
+      rangeLabel = formatWeekLabel(days);
+      periodNextBtn.disabled = weekOffset >= 0;
+      chartTitle.textContent = "Focused hours";
+      chartSectionTitle.textContent = "Time by day";
+    } else {
+      const { year, month, weeks } = getMonthWeeks(monthOffset);
+      periodDateKeys = weeks.flat().map(dateKey);
+      buckets = weeks.map(chunk=>{
+        const keys = chunk.map(dateKey);
+        const minutes = keys.reduce((s,k)=>s+minutesOnDate(k), 0);
+        const first = chunk[0].getDate(), last = chunk[chunk.length-1].getDate();
+        return { label: first===last ? `${first}` : `${first}–${last}`, minutes };
+      });
+      rangeLabel = formatMonthLabel(year, month);
+      periodNextBtn.disabled = monthOffset >= 0;
+      chartTitle.textContent = "Focused hours per week";
+      chartSectionTitle.textContent = "Time by week";
+    }
+
+    periodLabelEl.textContent = rangeLabel;
+    periodAvgLabelEl.textContent = `Locked in for ${rangeLabel}`;
+
+    const periodSessions = sessions.filter(s=>periodDateKeys.includes(s.date));
+    const periodMinutes = periodSessions.reduce((s,se)=>s+se.focusedSeconds,0)/60;
+    periodTotalEl.textContent = fmtHoursShort(periodMinutes);
+    periodSubEl.textContent = periodSessions.length
+      ? `Across ${periodSessions.length} session${periodSessions.length===1?"":"s"}`
+      : "No sessions logged yet.";
+    chartLegend.textContent = periodMinutes > 0 ? fmtHoursShort(periodMinutes) : "";
+
+    renderBarChart(buckets);
+    renderBreakdown(periodSessions);
+    renderSessionList(periodSessions);
+  }
+
+  function renderBarChart(buckets){
+    const w = 300, h = 130, padL = 6, padR = 6, padTop = 10, padBottom = 20;
+    const chartW = w - padL - padR;
+    const chartH = h - padTop - padBottom;
+    const maxScale = Math.max(30, ...buckets.map(b=>b.minutes)) * 1.15;
+    const barW = chartW / buckets.length * (buckets.length > 7 ? 0.6 : 0.5);
+    const gap = chartW / buckets.length;
+
+    let bars = "";
+    buckets.forEach((b,i)=>{
+      const x = padL + gap*i + (gap-barW)/2;
+      const barH = b.minutes > 0 ? Math.max(chartH * (b.minutes/maxScale), 3) : 2;
+      const y = padTop + chartH - barH;
+      const color = b.minutes > 0 ? "var(--accent)" : "var(--hairline)";
+      bars += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="4" fill="${color}" />`;
+      if(b.minutes > 0){
+        bars += `<text class="bar-value" x="${x+barW/2}" y="${y-6}" text-anchor="middle">${fmtHoursShort(b.minutes)}</text>`;
+      }
+      bars += `<text class="bar-label" x="${x+barW/2}" y="${h-4}" text-anchor="middle">${b.label}</text>`;
+    });
+
+    document.getElementById("bar-chart").innerHTML = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">${bars}</svg>`;
+  }
+
+  function renderBreakdown(periodSessions){
+    const card = document.getElementById("label-breakdown");
+    const empty = document.getElementById("breakdown-empty");
+    const totals = {};
+    periodSessions.forEach(s=>{
+      totals[s.labelId] = (totals[s.labelId]||0) + s.focusedSeconds;
+    });
+    const rows = Object.keys(totals)
+      .map(id=>({ label: getLabel(id), seconds: totals[id] }))
+      .sort((a,b)=>b.seconds-a.seconds);
+
+    if(!rows.length){
+      card.hidden = true;
+      empty.hidden = false;
+      return;
+    }
+    card.hidden = false;
+    empty.hidden = true;
+
+    const maxSeconds = rows[0].seconds;
+    card.innerHTML = rows.map(r=>`
+      <div class="breakdown-row">
+        <div class="top">
+          <span class="name"><span class="dot" style="background:${colorHex(r.label.color)}"></span>${r.label.name}</span>
+          <span class="amount">${fmtHoursShort(r.seconds/60)}</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${Math.max(4, (r.seconds/maxSeconds)*100)}%; background:${colorHex(r.label.color)}"></div>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function renderSessionList(periodSessions){
+    const list = document.getElementById("session-list");
+    const empty = document.getElementById("session-empty");
+    const sorted = [...periodSessions].sort((a,b)=> b.date.localeCompare(a.date) || (b.id > a.id ? 1 : -1));
+    list.innerHTML = "";
+    empty.hidden = sorted.length > 0;
+
+    sorted.forEach(session=>{
+      const label = getLabel(session.labelId);
+      const d = new Date(session.date + "T00:00:00");
+      const card = document.createElement("div");
+      card.className = "entry-card";
+      card.innerHTML = `
+        <div class="left">
+          <span class="dot" style="background:${colorHex(label.color)}"></span>
+          <div class="info">
+            <div class="name">${label.name}</div>
+            <div class="day">${fmtDay(d)}</div>
+          </div>
+        </div>
+        <div class="mins">${fmtHoursShort(session.focusedSeconds/60)}</div>
+      `;
+      card.addEventListener("click", ()=>openSessionSheet(session));
+      list.appendChild(card);
+    });
+  }
+
+  /* ---------------- Toasts ---------------- */
+  let toastQueue = [];
+  let toastShowing = false;
+
+  function queueToast(title, sub){
+    toastQueue.push({ title, sub });
+    if(!toastShowing) showNextToast();
+  }
+  function showNextToast(){
+    const next = toastQueue.shift();
+    if(!next){ toastShowing = false; return; }
+    toastShowing = true;
+    const toast = document.getElementById("toast");
+    document.getElementById("toast-text").innerHTML = `<strong>${next.title}</strong>${next.sub}`;
+    toast.classList.add("show");
+    setTimeout(()=>{
+      toast.classList.remove("show");
+      setTimeout(showNextToast, 350);
+    }, 3200);
+  }
+
+  /* ---------------- Service worker ---------------- */
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", ()=>{
+      navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
+    });
+  }
+})();
+</script>
+</body>
+</html>
