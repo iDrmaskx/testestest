@@ -240,27 +240,27 @@
     padding: 20px 18px;
   }
   .journey-head{ display:flex; align-items:center; justify-content:space-between; gap: 10px; margin-bottom: 14px; }
-  .trail-select{ display:flex; gap:6px; flex:1; }
-  .trail-chip{
-    flex:1;
-    text-align:center;
-    padding: 8px 6px;
-    border-radius: var(--radius-s);
+  .trail-picker-btn{
+    display:flex; align-items:center; gap:8px;
     background: var(--surface-2);
     border: 1px solid var(--hairline);
-    color: var(--text-dim);
-    font-size: 11.5px;
+    border-radius: var(--radius-s);
+    padding: 9px 12px;
+    color: var(--text);
+    font-size: 13px;
     font-weight: 600;
     cursor:pointer;
-    line-height:1.3;
+    flex: 1;
+    min-width: 0;
   }
-  .trail-chip.selected{ background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .trail-picker-btn span.name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .trail-picker-btn svg{ width:14px; height:14px; flex-shrink:0; color: var(--text-faint); }
   .lap-badge{
     font-size: 11px; font-weight:600; color: var(--accent);
     background: var(--accent-dim); border: 1px solid var(--border);
     border-radius: 20px; padding: 4px 10px; white-space:nowrap;
+    flex-shrink: 0;
   }
-  .trail-name{ font-family: var(--font-display); font-size: 17px; font-weight:500; margin-bottom: 8px; }
   #trail-path{ width:100%; }
   #trail-path svg{ width:100%; height:auto; display:block; overflow:visible; }
   .journey-foot{ display:flex; justify-content:space-between; align-items:baseline; margin-top: 10px; gap:10px; }
@@ -309,16 +309,16 @@
   nav.tabbar button.active svg{ filter: drop-shadow(0 0 8px rgba(224,122,66,0.4)); }
 
   /* ---------- Bottom sheet ---------- */
-  #sheet-backdrop{
+  #sheet-backdrop, #trail-sheet-backdrop{
     position: fixed; inset:0;
     background: rgba(6,5,4,0.6);
     opacity:0; pointer-events:none;
     transition: opacity 220ms ease;
     z-index: 30;
   }
-  #sheet-backdrop.show{ opacity:1; pointer-events:auto; }
+  #sheet-backdrop.show, #trail-sheet-backdrop.show{ opacity:1; pointer-events:auto; }
 
-  #entry-sheet{
+  #entry-sheet, #trail-sheet{
     position: fixed;
     left:50%; bottom:0;
     transform: translate(-50%, 100%);
@@ -332,9 +332,9 @@
     transition: transform 280ms cubic-bezier(.32,.72,0,1);
     z-index: 31;
   }
-  #entry-sheet.show{ transform: translate(-50%, 0); }
+  #entry-sheet.show, #trail-sheet.show{ transform: translate(-50%, 0); }
   .sheet-handle{ width:36px; height:4px; border-radius:2px; background: var(--hairline); margin: 6px auto 18px; }
-  #entry-sheet h2{ font-family: var(--font-display); font-weight:500; font-size:21px; margin: 0 0 20px; }
+  #entry-sheet h2, #trail-sheet h2{ font-family: var(--font-display); font-weight:500; font-size:21px; margin: 0 0 16px; }
 
   .field{ margin-bottom: 18px; }
   .field label{ display:block; font-size:13px; color: var(--text-dim); margin-bottom:8px; }
@@ -374,6 +374,28 @@
   .sheet-actions{ display:flex; gap:10px; margin-top: 6px; }
   .error-msg{ color: var(--coral); font-size: 13px; margin: -8px 0 16px; display:none; }
   .error-msg.show{ display:block; }
+
+  /* ---------- Trail picker sheet ---------- */
+  .trail-list{ display:flex; flex-direction:column; }
+  .trail-option{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding: 14px 2px;
+    border-bottom: 1px solid var(--hairline);
+    cursor:pointer;
+  }
+  .trail-option:last-child{ border-bottom:none; }
+  .trail-option .info .name{
+    font-family: var(--font-display); font-size: 15.5px; font-weight:500; color: var(--text);
+  }
+  .trail-option .info .meta{ font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+  .trail-option .length{ font-size: 12.5px; color: var(--text-faint); white-space:nowrap; font-variant-numeric: tabular-nums; }
+  .trail-option .check{
+    width: 19px; height:19px; border-radius:50%;
+    border: 1.5px solid var(--hairline);
+    flex-shrink:0;
+  }
+  .trail-option.selected .info .name{ color: var(--accent); }
+  .trail-option.selected .check{ border-color: var(--accent); background: var(--accent); }
 
   /* ---------- Toast ---------- */
   #toast{
@@ -452,10 +474,12 @@
       <div class="section-title">Your journey</div>
       <div class="journey-card">
         <div class="journey-head">
-          <div class="trail-select" id="trail-select"></div>
+          <button type="button" class="trail-picker-btn" id="trail-picker-btn">
+            <span class="name" id="trail-picker-current">John Muir Trail</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
           <span class="lap-badge" id="lap-badge" hidden></span>
         </div>
-        <div class="trail-name" id="trail-name"></div>
         <div id="trail-path"></div>
         <div class="journey-foot">
           <div class="next-waypoint" id="next-waypoint"></div>
@@ -534,6 +558,13 @@
     </div>
   </form>
 
+  <div id="trail-sheet-backdrop"></div>
+  <div id="trail-sheet">
+    <div class="sheet-handle"></div>
+    <h2>Choose a trail</h2>
+    <div class="trail-list" id="trail-list"></div>
+  </div>
+
   <div id="toast">
     <div class="toast-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20 9 9l4 6 3-5 5 10"/></svg>
@@ -550,7 +581,7 @@
   /* ---------------- Trail data ---------------- */
   const TRAILS = {
     jmt: {
-      id: "jmt", short: "JMT", name: "John Muir Trail", length: 211,
+      id: "jmt", short: "JMT", name: "John Muir Trail", region: "California, USA", length: 211,
       waypoints: [
         { miles: 0, name: "Happy Isles" },
         { miles: 46, name: "Tuolumne Meadows" },
@@ -560,7 +591,7 @@
       ]
     },
     wonderland: {
-      id: "wonderland", short: "Wonderland", name: "Wonderland Trail", length: 93,
+      id: "wonderland", short: "Wonderland", name: "Wonderland Trail", region: "Washington, USA", length: 93,
       waypoints: [
         { miles: 0, name: "Longmire" },
         { miles: 24, name: "Box Canyon" },
@@ -570,13 +601,123 @@
       ]
     },
     at: {
-      id: "at", short: "A.T.", name: "Appalachian Trail", length: 2190,
+      id: "at", short: "A.T.", name: "Appalachian Trail", region: "Georgia to Maine, USA", length: 2190,
       waypoints: [
         { miles: 0, name: "Springer Mountain, GA" },
-        { miles: 550, name: "Damascus, VA" },
+        { miles: 470, name: "Damascus, VA" },
         { miles: 1100, name: "Harpers Ferry, WV" },
-        { miles: 1650, name: "White Mountains, NH" },
+        { miles: 1660, name: "White Mountains, NH" },
         { miles: 2190, name: "Mt. Katahdin, ME" }
+      ]
+    },
+    pct: {
+      id: "pct", short: "PCT", name: "Pacific Crest Trail", region: "Mexico to Canada, USA", length: 2650,
+      waypoints: [
+        { miles: 0, name: "Campo, CA" },
+        { miles: 700, name: "Kennedy Meadows, CA" },
+        { miles: 1300, name: "Lake Tahoe, CA" },
+        { miles: 2000, name: "Crater Lake, OR" },
+        { miles: 2650, name: "Manning Park, BC" }
+      ]
+    },
+    cdt: {
+      id: "cdt", short: "CDT", name: "Continental Divide Trail", region: "Mexico to Canada, USA", length: 3100,
+      waypoints: [
+        { miles: 0, name: "Crazy Cook, NM" },
+        { miles: 800, name: "Chama, NM" },
+        { miles: 1550, name: "Yellowstone NP, WY" },
+        { miles: 2300, name: "Butte, MT" },
+        { miles: 3100, name: "Waterton Lake, MT" }
+      ]
+    },
+    longtrail: {
+      id: "longtrail", short: "Long Trail", name: "Long Trail", region: "Vermont, USA", length: 273,
+      waypoints: [
+        { miles: 0, name: "Massachusetts Line" },
+        { miles: 70, name: "Stratton Mountain" },
+        { miles: 140, name: "Killington" },
+        { miles: 210, name: "Smugglers' Notch" },
+        { miles: 273, name: "Canadian Border" }
+      ]
+    },
+    colorado: {
+      id: "colorado", short: "Colorado Trail", name: "Colorado Trail", region: "Colorado, USA", length: 486,
+      waypoints: [
+        { miles: 0, name: "Waterton Canyon" },
+        { miles: 120, name: "Buena Vista" },
+        { miles: 240, name: "Monarch Pass" },
+        { miles: 360, name: "Silverton" },
+        { miles: 486, name: "Durango" }
+      ]
+    },
+    arizona: {
+      id: "arizona", short: "AZT", name: "Arizona Trail", region: "Arizona, USA", length: 800,
+      waypoints: [
+        { miles: 0, name: "Coronado NM (Mexico border)" },
+        { miles: 200, name: "Superstition Wilderness" },
+        { miles: 400, name: "Grand Canyon, South Rim" },
+        { miles: 600, name: "Kaibab Plateau" },
+        { miles: 800, name: "Utah Border" }
+      ]
+    },
+    tahoe: {
+      id: "tahoe", short: "Tahoe Rim", name: "Tahoe Rim Trail", region: "California / Nevada, USA", length: 165,
+      waypoints: [
+        { miles: 0, name: "Tahoe City" },
+        { miles: 40, name: "Brockway Summit" },
+        { miles: 80, name: "Kingsbury South" },
+        { miles: 125, name: "Echo Summit" },
+        { miles: 165, name: "Tahoe City (loop)" }
+      ]
+    },
+    camino: {
+      id: "camino", short: "Camino", name: "Camino Francés", region: "France to Spain", length: 500,
+      waypoints: [
+        { miles: 0, name: "Saint-Jean-Pied-de-Port" },
+        { miles: 120, name: "Burgos" },
+        { miles: 250, name: "León" },
+        { miles: 370, name: "Sarria" },
+        { miles: 500, name: "Santiago de Compostela" }
+      ]
+    },
+    whw: {
+      id: "whw", short: "W. Highland", name: "West Highland Way", region: "Scotland", length: 96,
+      waypoints: [
+        { miles: 0, name: "Milngavie" },
+        { miles: 25, name: "Loch Lomond" },
+        { miles: 50, name: "Bridge of Orchy" },
+        { miles: 75, name: "Glencoe" },
+        { miles: 96, name: "Fort William" }
+      ]
+    },
+    gr20: {
+      id: "gr20", short: "GR20", name: "GR20", region: "Corsica, France", length: 112,
+      waypoints: [
+        { miles: 0, name: "Calenzana" },
+        { miles: 30, name: "Haut Asco" },
+        { miles: 55, name: "Vizzavona" },
+        { miles: 85, name: "Bavella" },
+        { miles: 112, name: "Conca" }
+      ]
+    },
+    teararoa: {
+      id: "teararoa", short: "Te Araroa", name: "Te Araroa", region: "New Zealand", length: 1900,
+      waypoints: [
+        { miles: 0, name: "Cape Reinga" },
+        { miles: 500, name: "Wellington" },
+        { miles: 950, name: "Marlborough Sounds" },
+        { miles: 1400, name: "Wanaka" },
+        { miles: 1900, name: "Bluff" }
+      ]
+    },
+    kungsleden: {
+      id: "kungsleden", short: "Kungsleden", name: "Kungsleden", region: "Swedish Lapland", length: 275,
+      waypoints: [
+        { miles: 0, name: "Abisko" },
+        { miles: 70, name: "Kebnekaise" },
+        { miles: 140, name: "Kvikkjokk" },
+        { miles: 210, name: "Ammarnäs" },
+        { miles: 275, name: "Hemavan" }
       ]
     }
   };
@@ -814,7 +955,6 @@
     document.getElementById("total-time").textContent = fmtLongDuration(totalSec);
 
     renderStreaks();
-    renderTrailSelector();
     renderJourney();
     renderWeekChart();
   }
@@ -857,31 +997,61 @@
     document.getElementById("streak-best").textContent = String(best);
   }
 
-  /* ----- Journey ----- */
-  function renderTrailSelector(){
-    const container = document.getElementById("trail-select");
-    container.innerHTML = "";
+  /* ----- Journey / trail picker ----- */
+  const trailSheet = document.getElementById("trail-sheet");
+  const trailSheetBackdrop = document.getElementById("trail-sheet-backdrop");
+  const trailPickerBtn = document.getElementById("trail-picker-btn");
+  const trailPickerCurrent = document.getElementById("trail-picker-current");
+
+  function openTrailSheet(){
+    renderTrailList();
+    trailSheetBackdrop.classList.add("show");
+    trailSheet.classList.add("show");
+    document.body.style.overflow = "hidden";
+  }
+  function closeTrailSheet(){
+    trailSheetBackdrop.classList.remove("show");
+    trailSheet.classList.remove("show");
+    document.body.style.overflow = "";
+  }
+  trailPickerBtn.addEventListener("click", openTrailSheet);
+  trailSheetBackdrop.addEventListener("click", closeTrailSheet);
+
+  function renderTrailList(){
+    const list = document.getElementById("trail-list");
+    list.innerHTML = "";
     Object.values(TRAILS).forEach(trail=>{
-      const chip = document.createElement("div");
-      chip.className = "trail-chip" + (trail.id===selectedTrail ? " selected" : "");
-      chip.textContent = trail.short;
-      chip.addEventListener("click", ()=>{
+      const row = document.createElement("div");
+      row.className = "trail-option" + (trail.id===selectedTrail ? " selected" : "");
+      row.innerHTML = `
+        <div class="info">
+          <div class="name">${trail.name}</div>
+          <div class="meta">${trail.region}</div>
+        </div>
+        <div class="length">${trail.length.toLocaleString()} mi</div>
+        <div class="check"></div>
+      `;
+      row.addEventListener("click", ()=>{
         selectedTrail = trail.id;
         localStorage.setItem(TRAIL_KEY, selectedTrail);
-        renderTrailSelector();
         renderJourney();
+        closeTrailSheet();
       });
-      container.appendChild(chip);
+      list.appendChild(row);
     });
+  }
+
+  function renderTrailSelector(){
+    trailPickerCurrent.textContent = TRAILS[selectedTrail].name;
   }
 
   function renderJourney(){
     const trail = TRAILS[selectedTrail];
+    renderTrailSelector();
     const totalMi = totalMilesAll();
     const lap = Math.floor(totalMi / trail.length);
     const progress = totalMi - lap*trail.length;
 
-    document.getElementById("trail-name").textContent = trail.name;
     const lapBadge = document.getElementById("lap-badge");
     if(lap > 0){ lapBadge.hidden = false; lapBadge.textContent = `Lap ${lap+1}`; }
     else { lapBadge.hidden = true; }
