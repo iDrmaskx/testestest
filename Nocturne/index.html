@@ -202,6 +202,28 @@
   .fab:active{ transform: scale(0.94); }
 
   /* ---------- Insights ---------- */
+  .period-toolbar{ display:flex; flex-direction:column; gap:12px; margin: 4px 0 20px; }
+  .segmented{
+    display:flex; background: var(--surface); border:1px solid var(--hairline);
+    border-radius: 12px; padding:4px;
+  }
+  .seg-btn{
+    flex:1; background:none; border:none; color: var(--text-dim);
+    font-size: 13.5px; font-weight:600; padding:8px 0; border-radius:9px; cursor:pointer;
+  }
+  .seg-btn.active{ background: var(--accent-dim); color: var(--accent); }
+  .period-nav{ display:flex; align-items:center; justify-content:space-between; }
+  .nav-arrow{
+    width:34px; height:34px; border-radius:50%;
+    border:1px solid var(--hairline); background: var(--surface); color: var(--text-dim);
+    font-size:17px; line-height:1; display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .nav-arrow:disabled{ opacity:0.3; cursor:default; }
+  .nav-arrow:active:not(:disabled){ background: var(--surface-2); }
+  .period-label{
+    font-family: var(--font-display); font-size:15px; font-weight:500; color: var(--text);
+  }
   .stat-hero{
     background: linear-gradient(165deg, var(--surface-2), var(--surface));
     border: 1px solid var(--border);
@@ -398,16 +420,28 @@
     </section>
 
     <section class="view" id="view-insights">
+      <div class="period-toolbar">
+        <div class="segmented" id="mode-toggle">
+          <button type="button" class="seg-btn active" data-mode="week">Week</button>
+          <button type="button" class="seg-btn" data-mode="month">Month</button>
+        </div>
+        <div class="period-nav">
+          <button type="button" class="nav-arrow" id="period-prev" aria-label="Previous period">‹</button>
+          <span class="period-label" id="period-label">This week</span>
+          <button type="button" class="nav-arrow" id="period-next" aria-label="Next period">›</button>
+        </div>
+      </div>
+
       <div class="stat-hero">
-        <div class="label">This week's average</div>
+        <div class="label" id="week-avg-label">Average this week</div>
         <div class="value" id="week-avg">—</div>
         <div class="sub" id="week-sub">Log a few nights to see your average.</div>
       </div>
 
-      <div class="section-title">Last 7 nights</div>
+      <div class="section-title">Nightly hours</div>
       <div class="chart-card">
         <div class="chart-head">
-          <h3>Hours slept</h3>
+          <h3 id="chart-title">Hours per night</h3>
           <span class="legend">shaded band = 7–9h</span>
         </div>
         <div id="bar-chart"></div>
@@ -539,6 +573,28 @@
   }
   tabs.log.addEventListener("click", ()=>showView("log"));
   tabs.insights.addEventListener("click", ()=>showView("insights"));
+
+  /* ---------------- Period controls (week/month nav) ---------------- */
+  const modeButtons = document.querySelectorAll(".seg-btn");
+  const periodPrevBtn = document.getElementById("period-prev");
+  const periodNextBtn = document.getElementById("period-next");
+
+  modeButtons.forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      viewMode = btn.dataset.mode;
+      modeButtons.forEach(b=>b.classList.toggle("active", b===btn));
+      renderInsights();
+    });
+  });
+  periodPrevBtn.addEventListener("click", ()=>{
+    if(viewMode === "week") weekOffset -= 1; else monthOffset -= 1;
+    renderInsights();
+  });
+  periodNextBtn.addEventListener("click", ()=>{
+    if(viewMode === "week"){ if(weekOffset < 0) weekOffset += 1; }
+    else { if(monthOffset < 0) monthOffset += 1; }
+    renderInsights();
+  });
 
   /* ---------------- Header greeting ---------------- */
   (function initHeader(){
@@ -687,17 +743,9 @@
   }
 
   /* ---------------- Render: Insights ---------------- */
-  function last7Days(){
-    const days = [];
-    const now = new Date();
-    for(let i=6;i>=0;i--){
-      const d = new Date(now);
-      d.setDate(d.getDate()-i);
-      d.setHours(0,0,0,0);
-      days.push(d);
-    }
-    return days;
-  }
+  let viewMode = "week";   // "week" | "month"
+  let weekOffset = 0;      // 0 = week containing today, -1 = previous week, ...
+  let monthOffset = 0;     // 0 = month containing today, -1 = previous month, ...
 
   function entryForNight(dayStart){
     const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate()+1);
@@ -707,58 +755,156 @@
     });
   }
 
-  function renderInsights(){
-    const days = last7Days();
-    const nightly = days.map(d=>{
-      const entry = entryForNight(d);
-      const mins = entry ? computeMinutes(entry.sleepAt, entry.wakeAt) : null;
-      return { day: d, entry, hours: mins!=null ? mins/60 : null };
-    });
+  // Sunday-start week containing today, shifted by `offset` whole weeks.
+  function getWeekDays(offset){
+    const now = new Date(); now.setHours(0,0,0,0);
+    const start = new Date(now);
+    start.setDate(start.getDate() - start.getDay() + offset*7);
+    const days = [];
+    for(let i=0;i<7;i++){
+      const d = new Date(start); d.setDate(start.getDate()+i);
+      days.push(d);
+    }
+    return days;
+  }
 
-    const withData = nightly.filter(n=>n.hours != null);
+  // Calendar month containing today, shifted by `offset` whole months.
+  // Returns the month's days grouped into Sunday-start week chunks.
+  function getMonthWeeks(offset){
+    const now = new Date();
+    const base = new Date(now.getFullYear(), now.getMonth()+offset, 1);
+    const year = base.getFullYear(), month = base.getMonth();
+    const lastDate = new Date(year, month+1, 0);
+    const cursor = new Date(year, month, 1);
+    cursor.setDate(cursor.getDate() - cursor.getDay());
+    const weeks = [];
+    while(cursor <= lastDate){
+      const chunk = [];
+      for(let i=0;i<7;i++){
+        const d = new Date(cursor); d.setDate(cursor.getDate()+i);
+        if(d.getMonth()===month && d.getFullYear()===year) chunk.push(d);
+      }
+      if(chunk.length) weeks.push(chunk);
+      cursor.setDate(cursor.getDate()+7);
+    }
+    return { year, month, weeks };
+  }
+
+  function bucketStats(nightEntries){
+    if(!nightEntries.length) return { hours:null, quality:null };
+    const totalMin = nightEntries.reduce((s,en)=>s+computeMinutes(en.sleepAt, en.wakeAt), 0);
+    const totalQ = nightEntries.reduce((s,en)=>s+en.quality, 0);
+    return { hours: (totalMin/nightEntries.length)/60, quality: totalQ/nightEntries.length };
+  }
+
+  function weekdayShort(d){ return d.toLocaleDateString(undefined,{weekday:"short"}).slice(0,3); }
+  function weekdayNarrow(d){ return d.toLocaleDateString(undefined,{weekday:"narrow"}); }
+
+  function buildWeekBuckets(offset){
+    return getWeekDays(offset).map(d=>{
+      const entry = entryForNight(d);
+      const stats = bucketStats(entry ? [entry] : []);
+      return { label: weekdayShort(d), pipLabel: weekdayNarrow(d), ...stats, count: entry?1:0 };
+    });
+  }
+
+  function buildMonthBuckets(offset){
+    const { weeks } = getMonthWeeks(offset);
+    return weeks.map(chunk=>{
+      const nightEntries = chunk.map(d=>entryForNight(d)).filter(Boolean);
+      const stats = bucketStats(nightEntries);
+      const first = chunk[0].getDate(), last = chunk[chunk.length-1].getDate();
+      const label = first===last ? `${first}` : `${first}–${last}`;
+      return { label, pipLabel: label, ...stats, count: nightEntries.length };
+    });
+  }
+
+  function formatWeekLabel(days){
+    const start = days[0], end = days[6];
+    const curYear = new Date().getFullYear();
+    const yearSuffix = start.getFullYear()!==curYear ? `, ${start.getFullYear()}` : "";
+    if(start.getMonth()===end.getMonth()){
+      return `${start.toLocaleDateString(undefined,{month:"short"})} ${start.getDate()}–${end.getDate()}${yearSuffix}`;
+    }
+    return `${start.toLocaleDateString(undefined,{month:"short",day:"numeric"})} – ${end.toLocaleDateString(undefined,{month:"short",day:"numeric"})}${yearSuffix}`;
+  }
+
+  function formatMonthLabel(year, month){
+    const label = new Date(year, month, 1).toLocaleDateString(undefined,{month:"long"});
+    const curYear = new Date().getFullYear();
+    return year===curYear ? label : `${label} ${year}`;
+  }
+
+  function renderInsights(){
+    const periodLabel = document.getElementById("period-label");
+    const periodNext = document.getElementById("period-next");
     const weekAvgEl = document.getElementById("week-avg");
+    const weekLabelEl = document.getElementById("week-avg-label");
     const weekSubEl = document.getElementById("week-sub");
-    if(withData.length){
-      const avgMin = withData.reduce((s,n)=>s + n.hours*60, 0) / withData.length;
-      weekAvgEl.textContent = duration(avgMin);
-      weekSubEl.textContent = `Across ${withData.length} of the last 7 nights`;
+    const chartTitle = document.getElementById("chart-title");
+
+    let buckets, rangeLabel, flatEntries;
+
+    if(viewMode === "week"){
+      const days = getWeekDays(weekOffset);
+      buckets = buildWeekBuckets(weekOffset);
+      rangeLabel = formatWeekLabel(days);
+      flatEntries = days.map(entryForNight).filter(Boolean);
+      periodNext.disabled = weekOffset >= 0;
+      chartTitle.textContent = "Hours per night";
     } else {
-      weekAvgEl.textContent = "—";
-      weekSubEl.textContent = "Log a few nights to see your average.";
+      const { year, month, weeks } = getMonthWeeks(monthOffset);
+      buckets = buildMonthBuckets(monthOffset);
+      rangeLabel = formatMonthLabel(year, month);
+      flatEntries = weeks.flat().map(entryForNight).filter(Boolean);
+      periodNext.disabled = monthOffset >= 0;
+      chartTitle.textContent = "Hours per night, weekly average";
     }
 
-    renderBarChart(nightly);
-    renderQualityRow(nightly);
+    periodLabel.textContent = rangeLabel;
+    weekLabelEl.textContent = `Average for ${rangeLabel}`;
+
+    if(flatEntries.length){
+      const avgMin = flatEntries.reduce((s,en)=>s+computeMinutes(en.sleepAt, en.wakeAt), 0) / flatEntries.length;
+      weekAvgEl.textContent = duration(avgMin);
+      const noun = viewMode==="week" ? "nights" : "nights logged";
+      weekSubEl.textContent = `Across ${flatEntries.length} ${noun}`;
+    } else {
+      weekAvgEl.textContent = "—";
+      weekSubEl.textContent = viewMode==="week" ? "No nights logged this week." : "No nights logged this month.";
+    }
+
+    renderBarChart(buckets);
+    renderQualityRow(buckets);
     renderBedtimeOptions();
   }
 
-  function renderBarChart(nightly){
+  function renderBarChart(buckets){
     const w = 300, h = 150, padL = 6, padR = 6, padTop = 10, padBottom = 22;
     const chartW = w - padL - padR;
     const chartH = h - padTop - padBottom;
-    const maxScale = Math.max(9, ...nightly.map(n=>n.hours||0)) + 1;
+    const maxScale = Math.max(9, ...buckets.map(b=>b.hours||0)) + 1;
     const bandTopY = padTop + chartH * (1 - 9/maxScale);
     const bandBottomY = padTop + chartH * (1 - 7/maxScale);
 
-    const barW = chartW / nightly.length * 0.5;
-    const gap = chartW / nightly.length;
+    const barW = chartW / buckets.length * (buckets.length > 7 ? 0.6 : 0.5);
+    const gap = chartW / buckets.length;
 
     let bars = "";
-    nightly.forEach((n, i)=>{
+    buckets.forEach((b, i)=>{
       const x = padL + gap*i + (gap-barW)/2;
-      const hrs = n.hours || 0;
-      const barH = n.hours != null ? chartH * (hrs/maxScale) : 2;
+      const hrs = b.hours || 0;
+      const barH = b.hours != null ? chartH * (hrs/maxScale) : 2;
       const y = padTop + chartH - barH;
       let color = "var(--hairline)";
-      if(n.hours != null){
+      if(b.hours != null){
         color = (hrs >= 7 && hrs <= 9) ? "var(--sage)" : (hrs < 6 ? "var(--coral)" : "var(--lavender)");
       }
-      const label = n.day.toLocaleDateString(undefined, { weekday:"short" }).slice(0,3);
       bars += `<rect x="${x}" y="${y}" width="${barW}" height="${Math.max(barH,3)}" rx="4" fill="${color}" />`;
-      if(n.hours != null){
+      if(b.hours != null){
         bars += `<text class="bar-value" x="${x+barW/2}" y="${y-6}" text-anchor="middle">${hrs.toFixed(1)}</text>`;
       }
-      bars += `<text class="bar-label" x="${x+barW/2}" y="${h-4}" text-anchor="middle">${label}</text>`;
+      bars += `<text class="bar-label" x="${x+barW/2}" y="${h-4}" text-anchor="middle">${b.label}</text>`;
     });
 
     const svg = `
@@ -770,21 +916,21 @@
     document.getElementById("bar-chart").innerHTML = svg;
   }
 
-  function renderQualityRow(nightly){
+  function renderQualityRow(buckets){
     const row = document.getElementById("quality-row");
     row.innerHTML = "";
-    nightly.forEach(n=>{
+    buckets.forEach(b=>{
       const wrap = document.createElement("div");
       wrap.className = "qd";
       const pip = document.createElement("div");
-      pip.className = "pip" + (n.entry ? " filled" : "");
-      if(n.entry){
-        const t = n.entry.quality/5;
+      pip.className = "pip" + (b.quality!=null ? " filled" : "");
+      if(b.quality!=null){
+        const t = b.quality/5;
         pip.style.background = `linear-gradient(90deg, var(--lavender) ${t*100}%, var(--hairline) ${t*100}%)`;
       }
       const label = document.createElement("div");
       label.className = "dlabel";
-      label.textContent = n.day.toLocaleDateString(undefined,{weekday:"narrow"});
+      label.textContent = b.pipLabel;
       wrap.appendChild(pip);
       wrap.appendChild(label);
       row.appendChild(wrap);
